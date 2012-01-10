@@ -38,7 +38,8 @@
 #include <Wprogram.h>	// Arduino 0022
 #endif
 
-#include "GE35.h"	// includes configuration information (e.g. mapping)
+#define GE35_NO_DATA	// don't instantiate the 'strand' structure
+#include "GE35.h"		// includes configuration information (e.g. mapping)
 
 GE35::GE35(){
     rgb black = {0,0,0};

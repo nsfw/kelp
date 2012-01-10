@@ -3,11 +3,6 @@
 */
 
 #include "GE35.h"
-// MAPPING - NOTE: currently strand LED mapping is in ge35mapping.h
-// Rename your LED mapping file to ge35mapping.h
-// Further, there are constants in GE35.h that need to match up with those
-// in the mapping file. Sorry!
-#include "GE35mapping.h"	// defines strands[]
 
 #include <string.h>
 
@@ -119,7 +114,6 @@ void loop(){
     // debug
     walkBulbs();
     dirty = 1;
-    //    walkBulbsOut();	// write directly into output buffer and send it
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -304,23 +298,6 @@ void walkBulbs(){
 //        img[1][0] = blue;
 //        img[2][0] = green;
     }
-}
-
-void walkBulbsOut(){
-    static int i = 0;
-    static int y = 0;
-    if(i++%100 == 0){
-        ge35.fill(ge35.out,black);
-        DUMPVAR("y= ",y);
-        ge35.out[y % IMG_HEIGHT][0] = white;
-        Serial.println();
-        y++;
-    } else {
-        // ge35.out[0][0] = red;
-        // ge35.out[1][0] = blue;
-        // ge35.out[2][0] = green;
-    }
-    ge35.sendImage();	// copy output buffer to LEDS
 }
 
 

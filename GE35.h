@@ -1,9 +1,19 @@
-/* GE35.h */
+// GE35.h - Drive GE35 LED lights
+//
+// NOTE: You need to include the MAPPING and CONFIGURATION file
+// PRIOR to including this file, for example:
+//
+// #include "GE35mapping.h"
+// #include "GE35.h"
+//
 
 #ifndef GE35_h
 #define GE35_h
 
 typedef unsigned char byte;
+
+#include "GE35mapping.h"
+
 #define DUMPVAR(s,v) Serial.print(s); Serial.print(v);
 
 struct rgb {
@@ -13,19 +23,6 @@ struct rgb {
 };
 
 #define FRAMESIZE (2+(26*3))
-
-// CONFIGURATION INFORMATION 
-#define MAX_STRAND_LEN 35	// Should be the ACTUAL LENGTH OF LONGEST STRAND - electrical max is 62
-#define STRAND_COUNT 1		// Needs to be ACTUAL NUMBER OF DATA LINES IN USE
-#define IMG_WIDTH 1			// should be 64 for full cube (28x9) is compatibile w/ sendscreen
-#define IMG_HEIGHT 35		// includes an extra pixel for 'down' seperate
-
-typedef struct a_strand {
-    byte len;		// length of this strand
-    byte pin;		// digital out pin associated w/ this strand
-    byte x[MAX_STRAND_LEN];		// source X and Y from Image
-    byte y[MAX_STRAND_LEN];
-} strand;
 
 // Low level Serial Rate -- need to adjust based on uController performance
 // tribit - is 1/3rd of a 30us bit time (10us)

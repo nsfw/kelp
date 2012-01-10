@@ -23,43 +23,69 @@
 #ifndef GE35mapping_h
 #define GE35mapping_h
 
+// CONFIGURATION INFORMATION 
+#define MAX_STRAND_LEN 35	// Should be the ACTUAL LENGTH OF LONGEST STRAND - electrical max is 62
+#define STRAND_COUNT 2		// Needs to be ACTUAL NUMBER OF DATA LINES IN USE
+#define IMG_WIDTH 4			
+#define IMG_HEIGHT 8		// 
+
+typedef struct a_strand {
+    byte len;		// length of this strand
+    byte pin;		// digital out pin associated w/ this strand
+    byte x[MAX_STRAND_LEN];		// source X and Y from Image
+    byte y[MAX_STRAND_LEN];
+} strand;
+
 #define PIN_PANEL_0_STRAND_A 22
 #define PIN_PANEL_0_STRAND_B 23
 
-#if 0
-strand strands[]={
-// len, pin, {x-coords}{y-coords}, 
-    /* panel 0 strand A */
-    { /*len*/ 5,
-      /*pin*/ 24,
-      {
-          0,0,0,0,0
-      },
-      {
-          0,1,2,3,4
-      }},
-};
-#endif
+#ifndef GE35_NO_DATA
 
-#if 1
 strand strands[]={
-// len, pin, {x-coords}{y-coords}, 
+// len, pin, {x-coords}{y-coords}, initial color
     /* panel 0 strand A */
     { /*len*/ 35,
       /*pin*/ PIN_PANEL_0_STRAND_A,
       {
-          0,0,0,0,0, 0,0,0,0,0,
-          0,0,0,0,0, 0,0,0,0,0,
-          0,0,0,0,0, 0,0,0,0,0,
-          0,0,0,0,0
+          0,0,0,0,0,0,0,0,
+                        0,	/* down */
+          0,0,0,0,0,0,0,0,
+          1,	/* spare */
+          1,1,1,1,1,1,1,1,
+                        1,	/* down */
+          1,1,1,1,1,1,1,1,
       },
       {
-          0,1,2,3,4,5,6,7,8,9,
-          10,11,12,13,14,15,16,17,18,19,
-          20,21,22,23,24,25,26,27,28,29,
-          30,31,32,33,34
+          0,1,2,3,4,5,6,7,
+                        7,	/* down */
+          7,6,5,4,3,2,1,0,
+          0,    /* spare */
+          0,1,2,3,4,5,6,7,
+                        7,	/* down */
+          7,6,5,4,3,2,1,0
+      }},
+    /* panel 0 strand B */
+    { /*len*/ 35,
+      /*pin*/ PIN_PANEL_0_STRAND_B,
+      {
+          2,2,2,2,2,2,2,2,
+                        2,	/* down */
+          2,2,2,2,2,2,2,2,
+          3,	/* spare */
+          3,3,3,3,3,3,3,3,
+                        3,	/* down */
+          3,3,3,3,3,3,3,3,
+      },
+      {
+          0,1,2,3,4,5,6,7,
+                        7,	/* down */
+          7,6,5,4,3,2,1,0,
+          0,    /* spare */
+          0,1,2,3,4,5,6,7,
+                        7,	/* down */
+          7,6,5,4,3,2,1,0
       }},
 };
-#endif
 
+#endif	// GE35_NO_DATA
 #endif

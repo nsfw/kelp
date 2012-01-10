@@ -9,7 +9,8 @@
 // the DRIVER SIDE. This will retain readability for text.
 //
 ///////////////////////////////////////////////////////////////////////////////
-
+#ifndef GE35mapping_h
+#define GE35mapping_h
 
 // Three strands on the back half of RV - upper back corner is 0,0 on PASSENGER SIDE
 #define confRV 1
@@ -212,3 +213,4 @@ strand strands[]={
       }}
 };
 
+#endif

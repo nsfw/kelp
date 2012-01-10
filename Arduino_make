@@ -1,0 +1,272 @@
+#Arduino+avrdude-specific stuff - currently for OSX
+
+# Update these to reflect the location of the Arduino IDE and avrdude installations, respectively
+ARDUINO_DIR = /Applications/Arduino.app/Contents/Resources/Java
+ARDUINO =  $(ARDUINO_DIR)/hardware/arduino/cores/arduino
+
+ARDUINO_LIB_PATH  = $(ARDUINO_DIR)/libraries
+
+AVRDUDE_DIR = /usr/local/CrossPack-AVR/bin
+
+
+ 
+
+#Board-specific configuration
+#details at https://github.com/arduino/Arduino/blob/master/hardware/arduino/boards.txt
+#UNO is tty.usbmodem, older are tty.usbserial - note that using wildcard * means only one board attached at a time!
+
+#these are common to almost every board
+F_CPU = 16000000
+PORT = /dev/tty.usbserial*
+MCU = atmega328p
+
+AVRDUDE_PROGRAMMER = stk500v1
+
+
+ifeq ($(MY_BOARD), UNO)
+PORT = /dev/tty.usbmodem*  
+UPLOAD_RATE = 115200
+MAX_SIZE = 32256
+endif
+#duemilanove - an older 
+ifeq ($(MY_BOARD), DUE) 
+UPLOAD_RATE = 57600
+MAX_SIZE = 30720
+endif
+ifeq ($(MY_BOARD), PROMINI_5)
+UPLOAD_RATE = 57600
+MAX_SIZE = 30720
+endif
+ifeq ($(MY_BOARD), PROMINI_3_3)
+UPLOAD_RATE = 57600
+MAX_SIZE = 30720
+F_CPU = 8000000
+
+endif
+ifeq ($(MY_BOARD),MEGA_2560)
+AVRDUDE_PROGRAMMER = stk500v2
+MAX_SIZE = 258048
+UPLOAD_RATE = 115200
+MCU=atmega2560
+
+endif
+
+#output filename, needed for clean too
+# set in "includer"
+# TARGET = $(EAR_PLATFORM)
+# The name of the main targets
+TARGET_HEX = $(OBJDIR)/$(TARGET).hex
+TARGET_ELF = $(OBJDIR)/$(TARGET).elf
+TARGET_COF= $(OBJDIR)/$(TARGET).cof
+TARGETS    = $(OBJDIR)/$(TARGET).*
+
+CORE_SRC = $(ARDUINO)/pins_arduino.c $(ARDUINO)/wiring.c \
+$(ARDUINO)/wiring_analog.c $(ARDUINO)/wiring_digital.c \
+$(ARDUINO)/wiring_pulse.c \
+$(ARDUINO)/wiring_shift.c $(ARDUINO)/WInterrupts.c
+
+CORE_CXXSRC = $(ARDUINO)/HardwareSerial.cpp $(ARDUINO)/WMath.cpp $(ARDUINO)/Print.cpp
+
+# set in "includer"
+# LOCAL_CXXSRC =  $(HAT_SRC)
+
+# Define all object files.
+SYS_LIBS      = $(patsubst %,$(ARDUINO_LIB_PATH)/%,$(ARDUINO_LIBS))
+SYS_INCLUDES  = $(patsubst %,-I%,$(SYS_LIBS))
+SYS_OBJS      = $(wildcard $(patsubst %,%/*.o,$(SYS_LIBS)))
+
+LIB_SRC       = $(wildcard $(patsubst %,%/*.cpp,$(SYS_LIBS)))
+ARD_LIB_OBJS      = $(patsubst $(ARDUINO_LIB_PATH)/%.cpp,$(OBJDIR)/libs/%.o,$(LIB_SRC))
+
+CORE_OBJ_FILES  = $(CORE_SRC:.c=.o) $(CORE_CXXSRC:.cpp=.o)
+CORE_OBJS       = $(patsubst $(ARDUINO)/%,  \
+			$(OBJDIR)/%,$(CORE_OBJ_FILES))
+
+LOCAL_OBJ_FILES  = $(LOCAL_SRC:.c=.o) $(LOCAL_CXXSRC:.cpp=.o) $(ASRC:.S=.o)
+LOCAL_OBJS      = $(patsubst %,$(OBJDIR)/%,$(LOCAL_OBJ_FILES))
+
+## Define custom libraries? not working yet
+LOCAL_LIB_OBJS  =  $(patsubst %.cpp,%.o,$(wildcard $(LIB_DIR)/*/*.cpp))
+#LOCAL_LIB_OBJS       = $(patsubst $(ARDUINO_LIB_PATH)/%.cpp,$(OBJDIR)/libs/%.o,$(LOCAL_LIB_SRC))
+#LOCAL_LIB_OBJS      = $(patsubst $(HAT_LIB_DIR)/%.cpp,$(OBJDIR)/libs/%.o,$(LIB_SRC))
+
+OBJ = $(LOCAL_OBJS) $(CORE_OBJS) $(ARD_LIB_OBJS)  $(LOCAL_LIB_OBJS)
+
+# Define all listing files.
+LST = $(ASRC:.S=.lst) $(CXXSRC:.cpp=.lst) $(SRC:.c=.lst)
+
+
+FORMAT = ihex
+
+
+# Name of this Makefile (used for "make depend").
+MAKEFILE = Arduino_make
+
+# Debugging format.
+# Native formats for AVR-GCC's -g are stabs [default], or dwarf-2.
+# AVR (extended) COFF requires stabs, plus an avr-objcopy run.
+DEBUG = stabs
+
+OPT = s
+
+# Place -D or -U options here
+CDEFS = -DF_CPU=$(F_CPU)
+CXXDEFS = -DF_CPU=$(F_CPU)
+
+# Place -I options here
+CINCS = -I$(ARDUINO) $(SYS_INCLUDES) -I$(COMMON_INCDIR) -I$(IR_LIBDIR)
+CXXINCS = -I$(ARDUINO) -I$(COMMON_INCDIR) -I$(IR_LIBDIR) 
+
+# Compiler flag to set the C Standard level.
+# c89   - "ANSI" C
+# gnu89 - c89 plus GCC extensions
+# c99   - ISO C99 standard (not yet fully implemented)
+# gnu99 - c99 plus GCC extensions
+CSTANDARD = -std=gnu99
+CDEBUG = -g$(DEBUG)
+CWARN = -Wall -Wstrict-prototypes
+CTUNING = -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums -ffunction-sections -fdata-sections -Wl,-gc-sections
+
+CFLAGS = $(CDEBUG) $(CDEFS) $(CINCS) -O$(OPT) $(CWARN) $(CSTANDARD) $(CEXTRA) $(CTUNING)
+CXXFLAGS = $(CDEFS) $(CINCS) -O$(OPT) $(CTUNING)
+LDFLAGS = -lm -Wl,-gc-sections -mmcu=$(MCU) 
+
+# Programming support using avrdude. Settings and variables.
+
+AVRDUDE_PORT = $(PORT)
+AVRDUDE_WRITE_FLASH = -U flash:w:$(TARGET_HEX)
+AVRDUDE_FLAGS = -F -p $(MCU) -P $(AVRDUDE_PORT) -c $(AVRDUDE_PROGRAMMER) \
+  -b $(UPLOAD_RATE) -D
+
+# Program settings
+CC = $(AVRDUDE_DIR)/avr-gcc
+CXX = $(AVRDUDE_DIR)/avr-g++
+OBJCOPY = $(AVRDUDE_DIR)/avr-objcopy
+OBJDUMP = $(AVRDUDE_DIR)/avr-objdump
+AR  = $(AVRDUDE_DIR)/avr-ar
+SIZE = $(AVRDUDE_DIR)/avr-size
+NM = $(AVRDUDE_DIR)/avr-nm
+AVRDUDE = $(AVRDUDE_DIR)/avrdude
+MV = mv -f
+
+# Combine all necessary flags and optional flags.
+# Add target processor to flags.
+ALL_CFLAGS = -mmcu=$(MCU) -I. $(CFLAGS)
+ALL_CXXFLAGS = -mmcu=$(MCU) -I.  $(CXXFLAGS) 
+ALL_ASFLAGS = -mmcu=$(MCU) -I. -x assembler-with-cpp $(ASFLAGS)
+
+# Default target.
+
+all: build_arduino
+
+print_objs: 
+	@echo $(OBJS)
+
+build_arduino: hex
+
+elf: $(TARGET_ELF)
+hex: $(TARGET_HEX)
+eep: $(OBJDIR)/$(TARGET).eep
+lss: $(OBJDIR)/$(TARGET).lss 
+sym: $(OBJDIR)/$(TARGET).sym
+
+# Program the device.  
+upload: $(TARGET_HEX)
+	$(AVRDUDE) $(AVRDUDE_FLAGS) $(AVRDUDE_WRITE_FLASH)
+
+#open screen to monitor the serial port - quit with ctrl+A ctrl+\ y
+go: upload monitor
+
+monitor:
+	./arduino-serial -b 57600 -p $(PORT) --cat
+
+# monitor:
+# 	screen $(PORT) 9600
+
+# Convert ELF to COFF for use in debugging / simulating in AVR Studio or VMLAB.
+COFFCONVERT=$(OBJCOPY) --debugging \
+--change-section-address .data-0x800000 \
+--change-section-address .bss-0x800000 \
+--change-section-address .noinit-0x800000 \
+--change-section-address .eeprom-0x810000 
+
+
+coff: $(TARGET_ELF)
+	$(COFFCONVERT) -O coff-avr  $(TARGET_ELF) $(TARGET_COF)
+
+
+extcoff: $(TARGET_ELF)
+	$(COFFCONVERT) -O coff-ext-avr $(TARGET_ELF) $(TARGET_COF)
+
+
+.SUFFIXES: .elf .hex .eep .lss .sym
+
+.elf.hex:
+	$(OBJCOPY) -O $(FORMAT) -R .eeprom $< $@
+
+.elf.eep:
+	-$(OBJCOPY) -j .eeprom --set-section-flags=.eeprom="alloc,load" \
+	--change-section-lma .eeprom=0 -O $(FORMAT) $< $@
+
+# Create extended listing file from ELF output file.
+.elf.lss:
+	$(OBJDUMP) -h -S $< > $@
+
+# Create a symbol table from ELF output file.
+.elf.sym:
+	$(NM) -n $< > $@
+
+
+$(OBJDIR)/core.a: $(OBJ)
+	@for i in $(OBJ); do echo $(AR) rcs $(OBJDIR)/core.a $$i; $(AR) rcs $(OBJDIR)/core.a $$i; done
+
+# Link: create ELF output file from library.
+$(TARGET_ELF): $(OBJDIR)/core.a
+	$(CC) $(ALL_CFLAGS) -o $@ $(TARGET).cpp -L. $(OBJDIR)/core.a $(LDFLAGS)
+
+# Compile Arduino libs
+$(OBJDIR)/libs/%.o: $(ARDUINO_LIB_PATH)/%.cpp
+	mkdir -p $(dir $@)
+	$(CC) -c $(CPPFLAGS) $(CFLAGS) $< -o $@
+
+# Compile local sources
+$(OBJDIR)/%.o: %.cpp
+	$(CXX) -c $(ALL_CXXFLAGS) $< -o $@ 
+
+$(OBJDIR)/%.o: %.cc
+	$(CXX) -c $(ALL_CXXFLAGS) $< -o $@ 
+
+# Compile: create object files from C source files.
+
+$(OBJDIR)/%.o: %.c
+	$(CC) -c $(ALL_CFLAGS) $< -o $@
+
+# Compile Arduino core files
+$(OBJDIR)/%.o: $(ARDUINO)/%.c
+	$(CC) -c $(CPPFLAGS) $(ALL_CFLAGS) $< -o $@
+
+$(OBJDIR)/%.o: $(ARDUINO)/%.cpp
+	$(CXX) -c $(CPPFLAGS) $(ALL_CXXFLAGS) $< -o $@
+
+# Compile: create assembler files from C source files.
+.c.s:
+	$(CC) -S $(ALL_CFLAGS) $< -o $@
+
+
+# Assemble: create object files from assembler source files.
+.S.o:
+	$(CC) -c $(ALL_ASFLAGS) $< -o $@
+
+
+depend:
+	if grep '^# DO NOT DELETE' $(MAKEFILE) >/dev/null; \
+	then \
+		sed -e '/^# DO NOT DELETE/,$$d' $(MAKEFILE) > \
+			$(MAKEFILE).$$$$ && \
+		$(MV) $(MAKEFILE).$$$$ $(MAKEFILE); \
+	fi
+	echo '# DO NOT DELETE THIS LINE -- make depend depends on it.' \
+		>> $(MAKEFILE); \
+	$(CC) -M -mmcu=$(MCU) $(CDEFS) $(CINCS) $(SRC) $(ASRC) >> $(MAKEFILE)
+
+.PHONY:	all build_arduino elf hex eep lss sym program coff extcoff clean depend
