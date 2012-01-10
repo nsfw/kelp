@@ -60,15 +60,15 @@ LEAST two digital control lines per panel.
 When we 'fold them' we could arrange strands like (strand0 and strand1):
 
 |
-+ a0  a1  a2  a3  a4  a5  a6  a7  -+
++ a0  a1  a2  a3  a4  a5  a6  a7  -+		X=0
                                    a7.5 (down/float)
-+ a15 a14 a13 a12 a11 a10 a9  a8  -+
++ a15 a14 a13 a12 a11 a10 a9  a8  -+        X=0
 |
 a15.5 a 'spare' led that makes wiring easier
 |
-+ a16 a17 a18 a19 a20 a21 a22 a23 -+
++ a16 a17 a18 a19 a20 a21 a22 a23 -+	    X=1
                                    a23.5 (down/float)
- -a31 a30 a29 a28 a27 a26 a25 a24 -+
+ -a31 a30 a29 a28 a27 a26 a25 a24 -+        X=1
 
 For 35 LEDs per two strands
 

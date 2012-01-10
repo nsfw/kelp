@@ -32,13 +32,20 @@
        sendFrame       
 */
 
-#include "Arduino.h"
+#if ARDUINO>=100
+#include <Arduino.h>	// Arduino 1.0
+#else
+#include <Wprogram.h>	// Arduino 0022
+#endif
+
 #include "GE35.h"	// includes configuration information (e.g. mapping)
 
 GE35::GE35(){
+    rgb black = {0,0,0};
     portAmask = 0;		// will accumulate output bits for pins we're driving
     portCmask = 0;
     imgBright = MAX_INTENSITY; 
+    fill(out,black);
 }
 
 extern strand strands[];
@@ -46,8 +53,8 @@ void GE35::init() {
     int i=0;
     while (i < STRAND_COUNT) {
         strandEnabled[i]=1;
-        pinMode(strands[i].pin, OUTPUT);
         digitalWrite(strands[i].pin, LOW);
+        pinMode(strands[i].pin, OUTPUT);
         Serial.print("Configured strand ");
         Serial.print(i, DEC);
         Serial.print(" on output pin ");
@@ -57,14 +64,22 @@ void GE35::init() {
     }
     Serial.println("Output Pins Configured");
 
-    Serial.print("Initializing Strands");
+    Serial.println("Initializing Strands");
 
-    // note: First time since power up, will assign addresses.
-    // If image buffer doesn't match strand config, interesting things
-    // will happen!
     rgb initColor = {128,0,255};
     fill(out,initColor);	// put something in the buffer
-    sendImageSerial();
+
+    // NOTE: First time since power up, will assign addresses.
+    // If image buffer doesn't match strand config, interesting things
+    // will happen!
+
+    // NOTE: this will assign unique addresses for each LED on a
+    // strand We can optimize by assigning the same address for LEDs
+    // on the SAME STRAND that reference the same pixel
+
+    // sendImageSerial();
+    delay(1000);
+    sendImagePara();
 
     Serial.println(" -- done");
 }
@@ -83,23 +98,9 @@ void GE35::fill(rgb buf[][IMG_WIDTH], rgb c){
     }
 }
 
-
-// think we can switch to the parallel version now...
-
-void GE35::sendImageSerial() {
-    // for all strands, one strand at a time
-    // Also useful for initial addressing
-    for (byte i=0; i<STRAND_COUNT; i++){
-        strand *s = &strands[i];
-        for(byte index=0; index<s->len; index++){
-            // for all leds on strand
-            byte x = s->x[index];
-            byte y = s->y[index];
-            rgb *pix = &out[y][x];
-
-            sendSingleLED(index, s->pin, pix->r, pix->g, pix->b, imgBright);
-        }
-    }
+char blockingReadChar(){
+    while(!Serial.available());	// wait for it
+    return Serial.read();
 }
 
 void GE35::sendSingleLED(byte address, int pin, byte r, byte g, byte b, byte i) {
@@ -110,29 +111,30 @@ void GE35::sendSingleLED(byte address, int pin, byte r, byte g, byte b, byte i) 
 }
 
 void GE35::makeFrame(byte index, byte r, byte g, byte b, byte i, byte *buffer){
+    // creates 26 byte version of 26bit payload
     int bufferPos = 0;
     int bitPos;
     int data;
 
     while (bufferPos < 26) {
         switch (bufferPos) {
-        case 0:
+        case 0:			// first 6 bits are INDEX of LED
             bitPos = 6;
             data = index;
             break;
-        case 6:
+        case 6:			// 8 bits for INTENSITY
             bitPos = 8;
             data = i;	
             break;
-        case 14:
+        case 14:		// 4 bits of BLUE
             bitPos = 4;
             data = b>>4;
             break;
-        case 18:
+        case 18:		// 4 bits of GREEN
             bitPos = 4;
             data = g>>4;
             break;
-        case 22:
+        case 22:		// 4 bits of RED
             bitPos = 4;
             data = r>>4;
             break;
@@ -165,6 +167,7 @@ void GE35::sendImagePara(){
         for( byte j=0; j < STRAND_COUNT; j++)
             row[j] = (i < strands[j].len )? i: -1;
         composeAndSendFrame();
+//        blockingReadChar();
     }
     displayTimeSince(sendIMGParaEntry, "sendIMGPara");
 }
@@ -270,13 +273,16 @@ void GE35::deferredSendFrame(byte pin, byte *bitbuffer){
             sliceClr(slicePtr++);
             sliceClr(slicePtr++);
             sliceSet(slicePtr++);
+//            Serial.print("1");
         } else {			// send a 0: L H H
             sliceClr(slicePtr++);
             sliceSet(slicePtr++);
             sliceSet(slicePtr++);
+//            Serial.print("0");
         }
     }
     sliceClr(slicePtr++);	// back to LOW inter frame
+//    Serial.println("");
 }
 
 void GE35::sendFrame(){

@@ -2,12 +2,12 @@
   KELP! A volumetric display using GE35 Color Effects LEDs
 */
 
+#include "GE35.h"
 // MAPPING - NOTE: currently strand LED mapping is in ge35mapping.h
 // Rename your LED mapping file to ge35mapping.h
 // Further, there are constants in GE35.h that need to match up with those
 // in the mapping file. Sorry!
-#include "GE35.h"
-#include "GE35mapping.h"
+#include "GE35mapping.h"	// defines strands[]
 
 #include <string.h>
 
@@ -83,20 +83,27 @@ void setup() {
     Ethernet.begin(myMac ,myIp); 
     osc.sockOpen(serverPort);
 
-    debugLevel=0;
-    hueScrollRate=0.00;		// and make it do something while wait for something to do
-    vScrollRate=0.8;
-
     resetDisplay(0);			// put *something* in the frame buffer
+    ge35.sendImage();
+
+    debugLevel=0;
+    noScroll();
 }
 
 byte noOSC=1;
 
+// pointing at ports
+// volatile uint8_t*foo[] = {&PORTA, &PORTC};
+//#include "pins_arduino.h"
+//	uint8_t bit = digitalPinToBitMask(22);
+//	uint8_t port = digitalPinToPort(22);
+
 void loop(){
-    Serial.println("In loop()");
+
     static int i=0;
     static int dirty=0;
     while(osc.available()){	// process all prior to displaying
+        Serial.println("OSC");
         dirty=1;
         if(noOSC){
             resetDisplay(0);	// get back to a known state if someone is talking to us
@@ -109,6 +116,10 @@ void loop(){
         prepOutBuffer();	// copies image buffer to OUT (may process)
         ge35.sendImage();	// copy output buffer to LEDS
     }
+    // debug
+    walkBulbs();
+    dirty = 1;
+    //    walkBulbsOut();	// write directly into output buffer and send it
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -278,6 +289,40 @@ void copyImage(){
     }
 }
 
+// debug
+void walkBulbs(){
+    static int i = 0;
+    static int y = 0;
+    if(i++%1 == 0){
+        fill(black);
+//        DUMPVAR("y= ",y);
+        img[y%IMG_HEIGHT][0] = white;
+//        Serial.println();
+        y++;
+    } else {
+//        img[0][0] = red;
+//        img[1][0] = blue;
+//        img[2][0] = green;
+    }
+}
+
+void walkBulbsOut(){
+    static int i = 0;
+    static int y = 0;
+    if(i++%100 == 0){
+        ge35.fill(ge35.out,black);
+        DUMPVAR("y= ",y);
+        ge35.out[y % IMG_HEIGHT][0] = white;
+        Serial.println();
+        y++;
+    } else {
+        // ge35.out[0][0] = red;
+        // ge35.out[1][0] = blue;
+        // ge35.out[2][0] = green;
+    }
+    ge35.sendImage();	// copy output buffer to LEDS
+}
+
 
 ///////////////////////////////////////////////////////////////////////////////
 // Initial Frame Buffer functions
@@ -291,31 +336,6 @@ void initFrameBuffer(int i){
             static int z=0;
             z=y%8;
             img[y][x]= (z==0||z==1)?red:((z==2||z==3)?green:(z==4||z==5)?blue:black);
-//             img[y][x]= (z==0)?red:((z==1)?green:blue);
-//            z=(++z)%3;
-        }
-    }
-}
-#endif
-
-#ifdef conf9x10
-void initFrameBuffer(int i){
-    i=i%3000;
-    if(i<1000){
-        // just stick some pattern in it for now
-        for(byte x=0; x<IMG_WIDTH; x++){
-            for(byte y=0; y<IMG_HEIGHT; y++){
-                i = ((test9x10[y][x]+i)-1)%3;
-                img[y][x]= (i==0)?red:((i==1)?green:blue);
-            }
-        }
-    } else {
-        // rows and columns
-        for(byte x=0; x<IMG_WIDTH; x++){
-            for(byte y=0; y<IMG_HEIGHT; y++){
-                int z = (i<2000)? x%3:y%3;
-                img[y][x]= (z==0)?red:((z==1)?green:blue);
-            }
         }
     }
 }

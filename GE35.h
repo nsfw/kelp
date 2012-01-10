@@ -4,6 +4,7 @@
 #define GE35_h
 
 typedef unsigned char byte;
+#define DUMPVAR(s,v) Serial.print(s); Serial.print(v);
 
 struct rgb {
   byte r;
@@ -14,11 +15,10 @@ struct rgb {
 #define FRAMESIZE (2+(26*3))
 
 // CONFIGURATION INFORMATION 
-#define MAX_STRAND_LEN 36	// Should be the ACTUAL LENGTH OF LONGEST STRAND - electrical max is 62
-#define STRAND_COUNT 12		// Needs to be ACTUAL NUMBER OF DATA LINES IN USE
-#define IMG_WIDTH 28		// highest index is 27
-#define IMG_HEIGHT 9
-
+#define MAX_STRAND_LEN 35	// Should be the ACTUAL LENGTH OF LONGEST STRAND - electrical max is 62
+#define STRAND_COUNT 1		// Needs to be ACTUAL NUMBER OF DATA LINES IN USE
+#define IMG_WIDTH 1			// should be 64 for full cube (28x9) is compatibile w/ sendscreen
+#define IMG_HEIGHT 35		// includes an extra pixel for 'down' seperate
 
 typedef struct a_strand {
     byte len;		// length of this strand
@@ -44,7 +44,6 @@ typedef struct a_strand {
 
 class GE35 {
 public:
-    int strand_count;
     byte imgBright;
     rgb out[IMG_HEIGHT][IMG_WIDTH];		// output image buffer
     int strandEnabled[STRAND_COUNT];
