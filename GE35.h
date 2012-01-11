@@ -81,12 +81,12 @@ public:
 	// Deferred I/O storage
     // !! Warning this is uController specific !! Not Portable! !!
 
-	// pins 22-29 PORTA
-	byte portAframe[FRAMESIZE];	// start and stop frome + 26 bits 
+	// pins 22-29 PORTA - ping / pong frame buffers
+	byte portAframe[2][FRAMESIZE];	// start and stop frome + 26 bits 
 	byte portAmask;			// remember what pins are being set
 
 	// pins 30-37 PORTC
-	byte portCframe[FRAMESIZE];	
+	byte portCframe[2][FRAMESIZE];	
 	byte portCmask;			
 };
 

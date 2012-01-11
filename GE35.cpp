@@ -29,7 +29,12 @@
       composeAndSendFrame()
          makeFrame()		    // encodes data for an LED into a byte buffer
          defferredSendFrame()	// sets bits for serial stream
-       sendFrame       
+       sendFrame (enable ISR to shift out 'frame' for all strands)
+
+Current performance w/ ISR:
+ 2 x 34 long strand, < 1ms between frames 8ms between sendImage yielding 66ms, or
+ roughly 15hz. 
+           
 */
 
 #if ARDUINO>=100
@@ -50,8 +55,13 @@ GE35::GE35(){
 }
 
 extern strand strands[];
+
+// ISR related variables
 volatile bool sendFrameFlag;			// flags that there is data to send
-volatile byte tribitTimerValue;
+byte tribitTimerValue;
+byte sendFramePingPong = 0;	// one to send, one to update
+byte *portAframeBuf;
+byte *portCframeBuf;
 GE35 *myGE35 = 0;
 
 void GE35::init() {
@@ -93,7 +103,7 @@ void GE35::init() {
 	// ( CPU Frequency ) / (prescaler value) = 16,000,000 Hz.
 	// 10us / 1/16us = 160.
 	// 256 – 160 = 96;
-    tribitTimerValue = 96 + 85;		// AT MEGA overhead compensation
+    tribitTimerValue = 96 + 46;		// AT MEGA overhead compensation (10.06us)
 
 	// TCNT2 value loaded and interrupt enabled
 	TCNT2 = tribitTimerValue;
@@ -253,11 +263,11 @@ byte * GE35::getBufferAndMask(byte pin, byte &pinmask){
     if(22 <= pin && pin <= 30){	// PORTA
         pinmask = (1<<(pin-22));
         portAmask |= pinmask;	// remember we're using this output pin
-        return portAframe;
+        return portAframe[sendFramePingPong];
     } else if(30 <= pin && pin <= 38){
         pinmask = (0x80>>(pin-30));	// bit 0 = pin 37
         portCmask |= pinmask;	// remember we're using this output pin
-        return portCframe;
+        return portCframe[sendFramePingPong];
     }
 }
 
@@ -305,15 +315,8 @@ void GE35::deferredSendFrame(byte pin, byte *bitbuffer){
 
     byte pinmask;
 
-    // points at appropriate buffer for this pin and sets pinmask
+    // points at appropriate buffer (respects ping-pong) for this pin and sets pinmask
     byte *slicePtr = getBufferAndMask(pin, pinmask);
-
-    // UPDATES portAframe[] and portCframe[] which is also used by sendFrameISR
-    // so wait for buffer to get freed up... should ping-pong buffer instead
-    while(sendFrameFlag){
-        Serial.print("w");
-        delay(10);	// debug
-    }
 
     sliceSet(slicePtr++);	// start bit
     for(byte i=0; i<26; i++){
@@ -321,29 +324,31 @@ void GE35::deferredSendFrame(byte pin, byte *bitbuffer){
             sliceClr(slicePtr++);
             sliceClr(slicePtr++);
             sliceSet(slicePtr++);
-//            Serial.print("1");
         } else {			// send a 0: L H H
             sliceClr(slicePtr++);
             sliceSet(slicePtr++);
             sliceSet(slicePtr++);
-//            Serial.print("0");
         }
     }
     sliceClr(slicePtr++);	// back to LOW inter frame
-//    Serial.println("");
 }
 
 void GE35::sendFrame(){
+    while(sendFrameFlag);	// wait if we're still processing last buffer
+    portAframeBuf = portAframe[sendFramePingPong];
+    portCframeBuf = portCframe[sendFramePingPong];
+    sendFramePingPong=(sendFramePingPong+1)&1;	// toggle buffers
     sendFrameFlag = 1;
 }
 
 void GE35::sendFrameISR(){
     static byte i = 0;	// current 'tribit'
-
+    
     if(!sendFrameFlag) return;
 
-    PORTA = (PORTA & ~portAmask) | (portAframe[i] & portAmask);	// selectively set bits
-    PORTC = (PORTC & ~portCmask) | (portCframe[i] & portCmask);	// selectively set bits
+    // selectively set bits
+    PORTA = (PORTA & ~portAmask) | (portAframeBuf[i] & portAmask);	
+    PORTC = (PORTC & ~portCmask) | (portCframeBuf[i] & portCmask);	
 
     i++;
 
