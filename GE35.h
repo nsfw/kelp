@@ -46,6 +46,11 @@ public:
     int strandEnabled[STRAND_COUNT];
     int row[STRAND_COUNT];				// index of LED to display for each strand
 
+    // Interrupt 
+    /* static volatile bool sendFrameFlag;			// flags that there is data to send */
+    /* static volatile int tribitTimerValue; */
+    void sendFrameISR();
+
     // methods
     GE35();
     void init();

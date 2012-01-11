@@ -50,6 +50,10 @@ GE35::GE35(){
 }
 
 extern strand strands[];
+volatile bool sendFrameFlag;			// flags that there is data to send
+volatile byte tribitTimerValue;
+GE35 *myGE35 = 0;
+
 void GE35::init() {
     int i=0;
     while (i < STRAND_COUNT) {
@@ -64,6 +68,38 @@ void GE35::init() {
         i++;
     }
     Serial.println("Output Pins Configured");
+
+    // init data sending interrupt routine on TIMER2
+    sendFrameFlag = 0; 		// nothing to send
+
+	// no interrupt during setup
+    TIMSK2 &= ~(1<<TOIE2);	// clear timer2 interrupt enable
+
+	//timer2 in counter mode
+    TCCR2A &= ~((1<<WGM21) | (1<<WGM20));
+    TCCR2B &= ~(1<<WGM22);
+
+	// internal clock
+    ASSR &= ~(1<<AS2);
+
+	// Compare Match A interruption disabled : we only need overflow
+	TIMSK2 &= ~(1<<OCIE2A);
+
+	// Prescaler setup to divide CPU clock by 1
+	TCCR2B |= (1<<CS20);
+	TCCR2B &= ~((1<<CS21)|(1<<CS22));
+
+	// Compute timer value for 10us 
+	// ( CPU Frequency ) / (prescaler value) = 16,000,000 Hz.
+	// 10us / 1/16us = 160.
+	// 256 – 160 = 96;
+    tribitTimerValue = 96 + 85;		// AT MEGA overhead compensation
+
+	// TCNT2 value loaded and interrupt enabled
+	TCNT2 = tribitTimerValue;
+	TIMSK2 |= (1<<TOIE2);	// enable interrupt
+
+    myGE35 = this;			// used in ISR
 
     Serial.println("Initializing Strands");
 
@@ -85,6 +121,11 @@ void GE35::init() {
     Serial.println(" -- done");
 }
 
+ISR(TIMER2_OVF_vect)
+{
+    TCNT2 = tribitTimerValue;		// reload timer
+    if(myGE35) myGE35->sendFrameISR();
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 // Library
@@ -168,7 +209,6 @@ void GE35::sendImagePara(){
         for( byte j=0; j < STRAND_COUNT; j++)
             row[j] = (i < strands[j].len )? i: -1;
         composeAndSendFrame();
-//        blockingReadChar();
     }
     displayTimeSince(sendIMGParaEntry, "sendIMGPara");
 }
@@ -268,6 +308,13 @@ void GE35::deferredSendFrame(byte pin, byte *bitbuffer){
     // points at appropriate buffer for this pin and sets pinmask
     byte *slicePtr = getBufferAndMask(pin, pinmask);
 
+    // UPDATES portAframe[] and portCframe[] which is also used by sendFrameISR
+    // so wait for buffer to get freed up... should ping-pong buffer instead
+    while(sendFrameFlag){
+        Serial.print("w");
+        delay(10);	// debug
+    }
+
     sliceSet(slicePtr++);	// start bit
     for(byte i=0; i<26; i++){
         if(bitbuffer[i]){	// send a 1 : L L H
@@ -287,13 +334,24 @@ void GE35::deferredSendFrame(byte pin, byte *bitbuffer){
 }
 
 void GE35::sendFrame(){
-    // Say it in one precise parallel blast for all strands
-    for(byte i = 0; i<FRAMESIZE; i++){
-        PORTA = (PORTA & ~portAmask) | (portAframe[i] & portAmask);	// selectively set bits
-        PORTC = (PORTC & ~portCmask) | (portCframe[i] & portCmask);	// selectively set bits
-        delayMicroseconds(tribit);
+    sendFrameFlag = 1;
+}
+
+void GE35::sendFrameISR(){
+    static byte i = 0;	// current 'tribit'
+
+    if(!sendFrameFlag) return;
+
+    PORTA = (PORTA & ~portAmask) | (portAframe[i] & portAmask);	// selectively set bits
+    PORTC = (PORTC & ~portCmask) | (portCframe[i] & portCmask);	// selectively set bits
+
+    i++;
+
+    if(i>=FRAMESIZE){
+        i=0;				// reset
+        sendFrameFlag = 0;	// done sending
     }
-    delayMicroseconds(quiettime);	// 30us quiesce
+
 }
 
 void GE35::dumpFrame(byte *buffer){
