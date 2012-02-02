@@ -1,0 +1,45 @@
+The image displayed on KELP is a "stack" of 2D images... that is,
+conventional 2D (X,Y) images are stacked in the vertical dimension
+into a 2D image that represents the entire cube. For instance, for our
+8x8x8 cube, we can save a frame as a 8x64 pixel image, where each
+frame is stored at a Y=0, Y=8, ... Y=56, ala:
+
+ frame0RGB
+ frame1RGB
+ frame2RGB
+ ...
+
+There are at least two existing '3d video' formats out there, the
+3dleds.com version and the CubeSense store their data in a simalar way
+except the color data is not interleaved. ala:
+ frame0R
+ frame0G
+ frame0B
+ frame1R 
+ ...
+The only difference is that CubeSense has a 'header' which include
+lattice size and number of frames. The Cubesense header looks like:
+
+After the header, starting at 0x0100 address in *.eca file goes actual
+3D video data. Each frame takes up 3*sizeX*sizeY*sizeZ (where sizeX,
+sizeY and sizeZ are lattice size parameters) bytes. First third of the
+frame is for red color channel’s data. Position of voxel in this first
+third when its coordinates are known can be found by the following
+equation: ((z*sizeY)+y)*sizeX+x. Following red channel goes green
+channel and finally blue channel. Next is the next frame with the same
+data structure.
+
+Addr   Len
+0x0000 0x0002 always 0x4C73
+0x0002 0x0001 type of file. Contains value of 1 in *.eca files created by Cubesense.
+0x0003 0x0002 RTA animation (Not used in *.eca files created by Cubesense)
+0x0005 0x0004 Number of frames (for "frame stream" file)
+0x0009 0x0003 Lattice size (1st byte ‐ x, 2nd byte ‐ y, 3rd byte ‐ z)
+0x000C 0x0020 Animation title (upto 20 visible chars+'/0'
+
+kelper.py will play either of these file types to an associated OSC
+address with the following options:
+ FRAMERATE - there is no inherent frame rate in these "movies"
+ MAT - Allow for arbitrary rotation matricies = [1,0,0, 0,1,0, 0,0,1]
+ YPR - "      "     "        "      YAW, PITCH, ROLL 
+and other stuff...
