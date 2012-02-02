@@ -19,6 +19,9 @@
 // They are configured with strand "a" led "0" mapped to [x,y] of [0,0]
 // strand "b" led "0" mapped to [2,0], "c0" = [4,0], "d0" = [7,0]
 //
+// The entire cube is mapped to an 8 x 64
+// Each PANEL is mapped to a different base X coordinate:
+// 
 ///////////////////////////////////////////////////////////////////////////////
 #ifndef GE35mapping_h
 #define GE35mapping_h
@@ -36,55 +39,53 @@ typedef struct a_strand {
     byte y[MAX_STRAND_LEN];
 } strand;
 
-#define PIN_PANEL_0_STRAND_A 22
-#define PIN_PANEL_0_STRAND_B 23
+// J3 (chipKIT) 78-85 -- upper left dual HDI
+#define PIN_PANEL_0_STRAND_A 78
+#define PIN_PANEL_0_STRAND_B 79
+#define PIN_PANEL_0_STRAND_C 80
+#define PIN_PANEL_0_STRAND_D 81
+
 
 #ifndef GE35_NO_DATA
 
+#define UP_DOWN_X(a,b) \
+    {\
+          a,a,a,a,a,a,a,a,\
+                        a,	/* down */\
+          a,a,a,a,a,a,a,a,\
+          b,	/* spare */\
+          b,b,b,b,b,b,b,b,\
+                        b,	/* down */\
+          b,b,b,b,b,b,b,b,\
+     }
+
+
+#define UP_DOWN_Y \
+    {\
+          0,1,2,3,4,5,6,7,                                \
+                        7,	/* down */ \
+          7,6,5,4,3,2,1,0, \
+          0,    /* spare */ \
+          0,1,2,3,4,5,6,7, \
+                        7,	/* down */\
+          7,6,5,4,3,2,1,0 \
+    }
+
+#define STRANDS(PIN,X) \
+    { /*len*/ 35,	\
+      /*pin*/ PIN,  \
+      UP_DOWN_X(X,X+1), \
+      UP_DOWN_Y	\
+    }
+
+
 strand strands[]={
 // len, pin, {x-coords}{y-coords}, initial color
-    /* panel 0 strand A */
-    { /*len*/ 35,
-      /*pin*/ PIN_PANEL_0_STRAND_A,
-      {
-          0,0,0,0,0,0,0,0,
-                        0,	/* down */
-          0,0,0,0,0,0,0,0,
-          1,	/* spare */
-          1,1,1,1,1,1,1,1,
-                        1,	/* down */
-          1,1,1,1,1,1,1,1,
-      },
-      {
-          0,1,2,3,4,5,6,7,
-                        7,	/* down */
-          7,6,5,4,3,2,1,0,
-          0,    /* spare */
-          0,1,2,3,4,5,6,7,
-                        7,	/* down */
-          7,6,5,4,3,2,1,0
-      }},
-    /* panel 0 strand B */
-    { /*len*/ 35,
-      /*pin*/ PIN_PANEL_0_STRAND_B,
-      {
-          2,2,2,2,2,2,2,2,
-                        2,	/* down */
-          2,2,2,2,2,2,2,2,
-          3,	/* spare */
-          3,3,3,3,3,3,3,3,
-                        3,	/* down */
-          3,3,3,3,3,3,3,3,
-      },
-      {
-          0,1,2,3,4,5,6,7,
-                        7,	/* down */
-          7,6,5,4,3,2,1,0,
-          0,    /* spare */
-          0,1,2,3,4,5,6,7,
-                        7,	/* down */
-          7,6,5,4,3,2,1,0
-      }},
+    /* panel 0 */
+    STRANDS(PIN_PANEL_0_STRAND_A,0),
+    STRANDS(PIN_PANEL_0_STRAND_B,2),
+    STRANDS(PIN_PANEL_0_STRAND_C,4),
+    STRANDS(PIN_PANEL_0_STRAND_D,6),
 };
 
 #endif	// GE35_NO_DATA

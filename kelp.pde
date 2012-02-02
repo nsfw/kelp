@@ -6,12 +6,28 @@
 
 #include <string.h>
 
+// #define chipKIT 1 -- defined in platforms.txt
+
+#ifndef chipKIT
+// -- ARDUINO --
 // Ethernet Support
-#include <SPI.h>
-#include <Client.h>
-#include <Ethernet.h>
-#include <Server.h>
-#include <Udp.h>
+// #include <SPI.h>
+// #include <Client.h>
+// #include <Ethernet.h>
+// #include <Server.h>
+// #include <Udp.h>
+// // OSC
+// #include <ArdOSC.h>
+#else
+// -- chipKIT32 --
+#include <chipKITEthernet.h>
+#include <chipKITOSC.h>
+
+#define strncasecmp strncmp
+#endif
+
+OSCServer osc;
+// OSCMessage *oscmsg;
 
 // rgb <-> hsv
 #include "RGBConverter.h"
@@ -32,17 +48,20 @@ byte debugLevel = 0;	// debugLevel > 100 will print each pixel as sent via /scre
 byte myMac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
 byte myIp[]  = { 198, 178, 187, 122 };
 #endif
-#define RVIP
+
+// #define RVIP
 #ifdef RVIP
 byte myMac[] = { 0xBE, 0xEF, 0xBE, 0xEF, 0xBE, 0xEF };
 byte myIp[]  = { 192, 168, 69, 69 };
 #endif
-int  serverPort  = 9999;
 
-// OSC
-#include <ArdOSC.h>
-OSCServer osc;
-OSCMessage *oscmsg;
+#define CHIPKIT_TEST
+#ifdef CHIPKIT_TEST
+byte myMac[] = { 0, 0, 0, 0, 0, 0 };	// let ethernet library assign something
+byte myIp[]  = { 139, 104, 88, 199 };
+#endif
+
+int  serverPort  = 9999;
 
 // FRAME BUFFER
 rgb img[IMG_HEIGHT][IMG_WIDTH]={128,0,255};		// source image from controller
@@ -76,7 +95,13 @@ void setup() {
     ge35.init();
 
     Ethernet.begin(myMac ,myIp); 
+
+#ifndef chipKIT
     osc.sockOpen(serverPort);
+#else
+    osc.begin(serverPort);		// newer version of OSC
+    osc.addCallback("*",oscDispatch);
+#endif
 
     resetDisplay(0);			// put *something* in the frame buffer
     ge35.sendImage();
@@ -97,15 +122,16 @@ void loop(){
 
     static int i=0;
     static int dirty=0;
-    while(osc.available()){	// process all prior to displaying
+    while(osc.availableCheck()){	// process all prior to displaying
+        // side effect of calling handler
         Serial.println("OSC");
         dirty=1;
         if(noOSC){
             resetDisplay(0);	// get back to a known state if someone is talking to us
             noOSC=0;
         }
-        oscmsg=osc.getMessage();
-        oscDispatch();
+        // OSCMessage *oscmsg=osc.getMessage();
+        // oscDispatch(oscmsg);
     }    
     if(dirty || hueScrollRate || vScrollRate || hScrollRate || displayCurrentColor ){
         prepOutBuffer();	// copies image buffer to OUT (may process)
@@ -132,7 +158,7 @@ void panelEnable(int p, int enable){
     }
 }
 
-void oscDispatch(){
+void oscDispatch(OSCMessage *oscmsg){
     static int resetcount=0;
 
     char *p = oscmsg->getOSCAddress();
@@ -152,24 +178,24 @@ void oscDispatch(){
     p++;	    // skip leading slash
 
     if(!strncasecmp(p,"screen",6)){
-        copyImage();
+        copyImage(oscmsg);
     } else if(!strncasecmp(p,"bright",5)){
-        brightness(oscmsg->getFloat(0)); 
+        brightness(oscmsg->getArgFloat(0)); 
     } else if(!strncasecmp(p,"hscroll",7)){
     } else if(!strncasecmp(p,"vscroll",7)){
-        vScrollRate=oscmsg->getFloat(0); 
+        vScrollRate=oscmsg->getArgFloat(0); 
     } else if(!strncasecmp(p,"huescroll",8)){
-        hueScrollRate=oscmsg->getFloat(0); 
+        hueScrollRate=oscmsg->getArgFloat(0); 
     } else if(!strncasecmp(p,"hvscroll",8)){
-        hScrollRate=oscmsg->getFloat(1); 
-        vScrollRate=oscmsg->getFloat(0); 
+        hScrollRate=oscmsg->getArgFloat(1); 
+        vScrollRate=oscmsg->getArgFloat(0); 
     } else if(!strncasecmp(p,"fill",4)){
         // fill framebuffer w/ an rgb(float) color
         rgb c;
         if(oscmsg->getArgsNum()==4){
-            c.r=oscmsg->getFloat(0)*255;
-            c.g=oscmsg->getFloat(1)*255;
-            c.b=oscmsg->getFloat(2)*255;
+            c.r=oscmsg->getArgFloat(0)*255;
+            c.g=oscmsg->getArgFloat(1)*255;
+            c.b=oscmsg->getArgFloat(2)*255;
             fill(c);
         } else {
             Serial.println("err: /fill expects 3 floats");
@@ -183,11 +209,11 @@ void oscDispatch(){
         int y, x;
         rgb c;
         if(oscmsg->getArgsNum()==6){
-            y = oscmsg->getInteger32(0);
-            x = oscmsg->getInteger32(1);
-            c.r=oscmsg->getFloat(2)*255;
-            c.g=oscmsg->getFloat(3)*255;
-            c.b=oscmsg->getFloat(4)*255;
+            y = oscmsg->getArgInt32(0);
+            x = oscmsg->getArgInt32(1);
+            c.r=oscmsg->getArgFloat(2)*255;
+            c.g=oscmsg->getArgFloat(3)*255;
+            c.b=oscmsg->getArgFloat(4)*255;
             // c.a=0xff;	//  make this optionally settable
             if(x<IMG_WIDTH && y<IMG_HEIGHT){
                 img[y][x] = c;
@@ -199,7 +225,7 @@ void oscDispatch(){
         // process "/effect/rgb/1..3 [0.0 .. 1.0] messages
         int i = p[4]-'1';		// 1..3
         byte *c = (byte*) &currentColor;
-        c[i]=(int) 255*oscmsg->getFloat(0);
+        c[i]=(int) 255*oscmsg->getArgFloat(0);
         if(solidMode){			// set whole screen to this color
             fill(currentColor);
         } else 
@@ -207,7 +233,7 @@ void oscDispatch(){
     } else if(!strncasecmp(p,"clear",5)){
         fill(black);
     } else if(!strncasecmp(p,"solid",5)){
-        solidMode = oscmsg->getFloat(0);
+        solidMode = oscmsg->getArgFloat(0);
         Serial.println("Solid Mode");
         Serial.println(solidMode);
     } else if(!strncasecmp(p,"grid",4)){
@@ -227,29 +253,29 @@ void oscDispatch(){
         // /panel panel#, mode
         Serial.println("handling panel");
         
-        int pan = oscmsg->getInteger32(0);
-        int mode = oscmsg->getInteger32(1);
+        int pan = oscmsg->getArgInt32(0);
+        int mode = oscmsg->getArgInt32(1);
         if(!mode) fill(black);
         panelEnable(pan,mode);
         // } else if(!strncasecmp(p,"datarate",8)){
         // debug method - set serial data rate! tribit quiettime
-        // tribit    = oscmsg->getInteger32(0);
-        // quiettime = oscmsg->getInteger32(1);
+        // tribit    = oscmsg->getArgInt32(0);
+        // quiettime = oscmsg->getArgInt32(1);
         // pf("tribit = %d quiettime = %d", tribit, quiettime);
     } else if(!strncasecmp(p,"debug",5)){
-        debugLevel=oscmsg->getInteger32(0);	// set debug level
+        debugLevel=oscmsg->getArgInt32(0);	// set debug level
     } else {
         Serial.print("Unrecognized Msg: ");
         Serial.println(p);
     }
 }
 
-void copyImage(){
+void copyImage(OSCMessage *oscmsg){
 	//
     // copy image data from OSC to framebuffer
     // 
-    int h = oscmsg->getInteger32(0);
-    int w = oscmsg->getInteger32(1);
+    int h = oscmsg->getArgInt32(0);
+    int w = oscmsg->getArgInt32(1);
 
     // Inbound Image must at least as big as our measly frame buffer in size
     if(w<IMG_WIDTH || h<IMG_HEIGHT){
@@ -257,7 +283,7 @@ void copyImage(){
         return;
     }
 
-    byte *data = (byte*) oscmsg->getBlob(2)->data;
+    byte *data = (byte*) oscmsg->getArgBlob(2)->data;
 #ifdef DBG
     if(debugLevel==101){
         // pf("Blob Length: %d\n",oscmsg->getBlob(2)->len);

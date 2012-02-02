@@ -80,6 +80,5 @@ Works with all three wires exposed to water.
 
 Controllers:
 Controlled by an Arduino Mega or chipKit http://www.chipkit.org/forum/
-For Chipkit get the NetworkShield
-http://www.digilentinc.com/
+For Chipkit you'll need the NetworkShield http://www.digilentinc.com/
 

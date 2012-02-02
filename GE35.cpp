@@ -37,6 +37,12 @@ Current performance w/ ISR:
            
 */
 
+#ifdef chipKIT
+#undef USE_ISR
+#else
+#define USE_ISR
+#endif
+
 #if ARDUINO>=100
 #include <Arduino.h>	// Arduino 1.0
 #else
@@ -82,6 +88,7 @@ void GE35::init() {
     // init data sending interrupt routine on TIMER2
     sendFrameFlag = 0; 		// nothing to send
 
+#ifdef USE_ISR
 	// no interrupt during setup
     TIMSK2 &= ~(1<<TOIE2);	// clear timer2 interrupt enable
 
@@ -108,6 +115,7 @@ void GE35::init() {
 	// TCNT2 value loaded and interrupt enabled
 	TCNT2 = tribitTimerValue;
 	TIMSK2 |= (1<<TOIE2);	// enable interrupt
+#endif
 
     myGE35 = this;			// used in ISR
 
@@ -121,7 +129,7 @@ void GE35::init() {
     // will happen!
 
     // NOTE: this will assign unique addresses for each LED on a
-    // strand We can optimize by assigning the same address for LEDs
+    // strand. We can optimize by assigning the same address for LEDs
     // on the SAME STRAND that reference the same pixel
 
     // sendImageSerial();
@@ -131,11 +139,13 @@ void GE35::init() {
     Serial.println(" -- done");
 }
 
+#ifdef USE_ISR
 ISR(TIMER2_OVF_vect)
 {
     TCNT2 = tribitTimerValue;		// reload timer
     if(myGE35) myGE35->sendFrameISR();
 }
+#endif
 
 ///////////////////////////////////////////////////////////////////////////////
 // Library
@@ -249,6 +259,7 @@ void GE35::setGlobalIntensity(byte val){
 // 0 =   L H H 
 // 1 =   L L H
 
+#ifndef CHIPKIT32
 // !!WARNING!! THIS IS NON PORTABLE!! !!WARNING!!
 void GE35::setPin(byte pin){
     if(pin<30) PORTA |= (1<<(pin-22));
@@ -270,6 +281,9 @@ byte * GE35::getBufferAndMask(byte pin, byte &pinmask){
         return portCframe[sendFramePingPong];
     }
 }
+#else	// CHIPKIT32 (pic32)
+
+#endif
 
 void GE35::composeAndSendFrame(){
     // Compose bit pattern to send for a particular LED across all active strands
@@ -334,12 +348,23 @@ void GE35::deferredSendFrame(byte pin, byte *bitbuffer){
 }
 
 void GE35::sendFrame(){
+#ifdef USE_ISR
     while(sendFrameFlag);	// wait if we're still processing last buffer
+#endif
     portAframeBuf = portAframe[sendFramePingPong];
     portCframeBuf = portCframe[sendFramePingPong];
     sendFramePingPong=(sendFramePingPong+1)&1;	// toggle buffers
     sendFrameFlag = 1;
+
+#ifndef USE_ISR
+// Just delay instead of using ISR
+    while(sendFrameFlag){
+        sendFrameISR();
+        delayMicroseconds(9);
+    }
+#endif
 }
+
 
 void GE35::sendFrameISR(){
     static byte i = 0;	// current 'tribit'
