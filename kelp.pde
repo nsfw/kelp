@@ -1,6 +1,16 @@
-/*
-  KELP! A volumetric display using GE35 Color Effects LEDs
-*/
+// KELP! A volumetric* display using GE35 Color Effects LEDs
+//
+// (*OK, it really depends on how you lay things out, it can totally
+//  support 2D or even 1D displays if you desire. And I guess, in some
+//  ways 4D displays, or even higher dimensional ones if you get extra
+//  clever.)
+//
+// Put your display details in GE35mapping.h
+//
+// Scott - alcoholiday googlemailservicedotcom
+//
+// v1.0 - 02FEB12 - Kind of working!
+//
 
 #include "GE35.h"
 
@@ -178,7 +188,9 @@ void oscDispatch(OSCMessage *oscmsg){
     p++;	    // skip leading slash
 
     if(!strncasecmp(p,"screen",6)){
-        copyImage(oscmsg);
+        copyImage(oscmsg);		// copy to x,y
+    } else if(!strncasecmp(p,"screenxy",8)){
+        copyImageXY(oscmsg);	// copy to screen with x,y offset
     } else if(!strncasecmp(p,"bright",5)){
         brightness(oscmsg->getArgFloat(0)); 
     } else if(!strncasecmp(p,"hscroll",7)){
@@ -270,6 +282,8 @@ void oscDispatch(OSCMessage *oscmsg){
     }
 }
 
+
+// Legacy Image mode for RV support
 void copyImage(OSCMessage *oscmsg){
 	//
     // copy image data from OSC to framebuffer
@@ -302,6 +316,38 @@ void copyImage(OSCMessage *oscmsg){
 #ifdef DBG
             // if(debugLevel>100) pf("[%d][%d]=%d,%d,%d ",y,x,d->r,d->g,d->b);
 #endif
+        }
+#ifdef DBG
+        if(debugLevel>100) Serial.println("/n");
+#endif
+    }
+}
+
+void copyImageXY(OSCMessage *oscmsg){
+	//
+    // copy image data from OSC to framebuffer with OFFSET
+    // 
+    int h = oscmsg->getArgInt32(0);
+    int w = oscmsg->getArgInt32(1);
+    int baseX = oscmsg->getArgInt32(2);
+    int baseY = oscmsg->getArgInt32(3);
+
+    byte *data = (byte*) oscmsg->getArgBlob(4)->data;
+
+#ifdef DBG
+    if(debugLevel==101){
+        dumpHex(data, "ScreenData:", 4);
+    }
+#endif
+
+    for(byte x=baseX; x<IMG_WIDTH; x++){
+        for(byte y=baseY; y<IMG_HEIGHT; y++){
+            rgb *d = &img[y][x];
+            byte *s = data + ((x+(y*w))<<2);	// src pixels in uint32
+            d->r = *s++;
+            d->g = *s++;
+            d->b = *s++;
+            // skip alpha
         }
 #ifdef DBG
         if(debugLevel>100) Serial.println("/n");
