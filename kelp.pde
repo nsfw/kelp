@@ -16,9 +16,9 @@
 
 #include <string.h>
 
-// #define chipKIT 1 -- defined in platforms.txt
+// #define chipKIT 1 -- defined in platforms.txt (should be __PIC32MX__)
 
-#ifndef chipKIT
+#ifndef __PIC32MX__
 // -- ARDUINO --
 // Ethernet Support
 // #include <SPI.h>
@@ -96,17 +96,50 @@ int displayCurrentColor=0;
 
 GE35 ge35;
 
+void periodic(){
+    static int i=0;
+    // On chipKIT high volume ethernet activity needs high volume service
+    if((i++ & 3)==0)  Ethernet.PeriodicTasks();
+}
+
+
+
+#ifdef __PIC32MX__
+
+#include "exceptions.h"
+
+void dumpExceptionInfo(){
+    Serial.println("## EXCEPTION ############################################");
+    if (_excep_code == EXCEP_Trap) {
+        Serial.print("Trap exception: ");
+    } else if (_excep_code == EXCEP_DBE) {
+        Serial.print("Bus error (load/store) exception: ");
+      } else {
+        Serial.print("Unknown exception: ");
+    }
+    Serial.print(_excep_code);
+    Serial.println();
+    Serial.println("#######################################################");
+#endif
+}
+
 void setup() {
     Serial.begin(57600);
+
     Serial.println("Device Start -- ");
-    // pf("IP: %d.%d.%d.%d:%d\n", myIp[0], myIp[1], myIp[2], myIp[3], serverPort);
+    DUMPVAR("IP: ",(int) myIp[0]);
+    DUMPVAR(".",(int) myIp[1]);
+    DUMPVAR(".",(int) myIp[2]);
+    DUMPVAR(".",(int) myIp[3]);
+    DUMPVAR(" port: ", serverPort);
+    Serial.println("");
 
     Serial.println("Initing GE35 --");
     ge35.init();
 
     Ethernet.begin(myMac ,myIp); 
 
-#ifndef chipKIT
+#ifndef __PIC32MX__
     osc.sockOpen(serverPort);
 #else
     osc.begin(serverPort);		// newer version of OSC
@@ -116,57 +149,70 @@ void setup() {
     resetDisplay(0);			// put *something* in the frame buffer
     ge35.sendImage();
 
+    ge35.setPeriodicFx(periodic);
+
     debugLevel=0;
     noScroll();
+
+    ge35.setDebugLevel(1);
+    ge35.setDebugXY(IMG_WIDTH+1,0);	// disables output
+
+    // debug 
+    digitalWrite(22, LOW);
+    pinMode(22, OUTPUT);
 }
 
 byte noOSC=1;
-
-// pointing at ports
-// volatile uint8_t*foo[] = {&PORTA, &PORTC};
-//#include "pins_arduino.h"
-//	uint8_t bit = digitalPinToBitMask(22);
-//	uint8_t port = digitalPinToPort(22);
+byte noUpdate=0;		// some OSC commands don't need a graphic refresh!
 
 void loop(){
+    TRY {
+        // Serial.println("loop");
+        static int dirty=0;
+        static int osccnt=0;
+        static int loopcnt=0;
+        while(osc.availableCheck()){	// process all prior to displaying
+            // above has side effect of calling handler
+            // Serial.print("OSC:"); Serial.println(osccnt++);
+            dirty=1;
+            if(noOSC){
+                resetDisplay(0);	// get back to a known state if someone is talking to us
+                noOSC=0;
+            }
+        }    
+        
+        Ethernet.PeriodicTasks();	// chipKIT service Ethernet
 
-    static int i=0;
-    static int dirty=0;
-    while(osc.availableCheck()){	// process all prior to displaying
-        // side effect of calling handler
-        Serial.println("OSC");
-        dirty=1;
         if(noOSC){
-            resetDisplay(0);	// get back to a known state if someone is talking to us
-            noOSC=0;
+            Serial.println("idle");
+            resetDisplay(loopcnt++);
+            dirty=1;
         }
-        // OSCMessage *oscmsg=osc.getMessage();
-        // oscDispatch(oscmsg);
-    }    
-    if(dirty || hueScrollRate || vScrollRate || hScrollRate || displayCurrentColor ){
-        prepOutBuffer();	// copies image buffer to OUT (may process)
-        ge35.sendImage();	// copy output buffer to LEDS
+        
+        if(!noUpdate &&
+           (dirty || hueScrollRate || vScrollRate || hScrollRate || displayCurrentColor )){
+            prepOutBuffer();	// copies image buffer to OUT (may process)
+            ge35.sendImage();	// copy output buffer to LEDS
+            Serial.print(".");
+            dirty = 0;
+        }
+
+        noUpdate = 0;
+        
+        // debug - output update rate
+        static int tog = 0;
+        digitalWrite(22, tog++&0x01);
+        
+        // fill(green);
+        // dirty=1;
+    } CATCH {
+        dumpExceptionInfo();
     }
-    // debug
-    walkBulbs();
-    dirty = 1;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 // OSC "handlers"
 ///////////////////////////////////////////////////////////////////////////////
-
-void panelEnable(int p, int enable){
-    // consider losing this, we never use it - turns off one side
-    // or the other of the RV.
-
-    int start=0, end=5;
-    if(p==1){start=6; end=11;}
-
-    for (int i=start; i<=end; i++){
-        ge35.strandEnabled[i]=enable;
-    }
-}
 
 void oscDispatch(OSCMessage *oscmsg){
     static int resetcount=0;
@@ -187,11 +233,13 @@ void oscDispatch(OSCMessage *oscmsg){
 
     p++;	    // skip leading slash
 
-    if(!strncasecmp(p,"screen",6)){
-        copyImage(oscmsg);		// copy to x,y
-    } else if(!strncasecmp(p,"screenxy",8)){
+    if(!strncasecmp(p,"screenxy",8)){
         copyImageXY(oscmsg);	// copy to screen with x,y offset
-    } else if(!strncasecmp(p,"bright",5)){
+        Serial.print("+");
+    } else if(!strncasecmp(p,"screen",6)){
+        // NOTE: changed to W, H, data... (from H, W)
+        copyImage(oscmsg);		// copy to x,y
+    } else  if(!strncasecmp(p,"bright",5)){
         brightness(oscmsg->getArgFloat(0)); 
     } else if(!strncasecmp(p,"hscroll",7)){
     } else if(!strncasecmp(p,"vscroll",7)){
@@ -204,7 +252,7 @@ void oscDispatch(OSCMessage *oscmsg){
     } else if(!strncasecmp(p,"fill",4)){
         // fill framebuffer w/ an rgb(float) color
         rgb c;
-        if(oscmsg->getArgsNum()==4){
+        if(oscmsg->getArgsNum()==3){
             c.r=oscmsg->getArgFloat(0)*255;
             c.g=oscmsg->getArgFloat(1)*255;
             c.b=oscmsg->getArgFloat(2)*255;
@@ -260,20 +308,14 @@ void oscDispatch(OSCMessage *oscmsg){
         // Serial.println(row);
         // Serial.println(col);
         img[row][col] = currentColor;
-    } else if(!strncasecmp(p,"panel",5)){
-        // enable or disable a panel
-        // /panel panel#, mode
-        Serial.println("handling panel");
-        
-        int pan = oscmsg->getArgInt32(0);
-        int mode = oscmsg->getArgInt32(1);
-        if(!mode) fill(black);
-        panelEnable(pan,mode);
-        // } else if(!strncasecmp(p,"datarate",8)){
-        // debug method - set serial data rate! tribit quiettime
-        // tribit    = oscmsg->getArgInt32(0);
-        // quiettime = oscmsg->getArgInt32(1);
-        // pf("tribit = %d quiettime = %d", tribit, quiettime);
+    } else if(!strncasecmp(p,"debugxy",7)){
+        int x = oscmsg->getArgInt32(0);
+        int y = oscmsg->getArgInt32(1);
+        ge35.setDebugXY(x,y);
+        Serial.print("debugXY set to: ");
+        Serial.print(x);
+        Serial.print(",");
+        Serial.println(y);
     } else if(!strncasecmp(p,"debug",5)){
         debugLevel=oscmsg->getArgInt32(0);	// set debug level
     } else {
@@ -288,8 +330,8 @@ void copyImage(OSCMessage *oscmsg){
 	//
     // copy image data from OSC to framebuffer
     // 
-    int h = oscmsg->getArgInt32(0);
-    int w = oscmsg->getArgInt32(1);
+    int w = oscmsg->getArgInt32(0);
+    int h = oscmsg->getArgInt32(1);
 
     // Inbound Image must at least as big as our measly frame buffer in size
     if(w<IMG_WIDTH || h<IMG_HEIGHT){
@@ -297,11 +339,11 @@ void copyImage(OSCMessage *oscmsg){
         return;
     }
 
-    byte *data = (byte*) oscmsg->getArgBlob(2)->data;
+    byte *data = (byte*) oscmsg->getArg(2)->_argData;
 #ifdef DBG
     if(debugLevel==101){
         // pf("Blob Length: %d\n",oscmsg->getBlob(2)->len);
-        dumpHex(data, "ScreenData:", 4);
+        dumpHex(data, "ScreenData:", 8);
     }
 #endif
 
@@ -317,9 +359,6 @@ void copyImage(OSCMessage *oscmsg){
             // if(debugLevel>100) pf("[%d][%d]=%d,%d,%d ",y,x,d->r,d->g,d->b);
 #endif
         }
-#ifdef DBG
-        if(debugLevel>100) Serial.println("/n");
-#endif
     }
 }
 
@@ -327,30 +366,38 @@ void copyImageXY(OSCMessage *oscmsg){
 	//
     // copy image data from OSC to framebuffer with OFFSET
     // 
-    int h = oscmsg->getArgInt32(0);
-    int w = oscmsg->getArgInt32(1);
+    int w = oscmsg->getArgInt32(0);
+    int h = oscmsg->getArgInt32(1);
     int baseX = oscmsg->getArgInt32(2);
     int baseY = oscmsg->getArgInt32(3);
 
-    byte *data = (byte*) oscmsg->getArgBlob(4)->data;
+    byte *data = (byte*) oscmsg->getArg(4)->_argData;
 
 #ifdef DBG
     if(debugLevel==101){
         dumpHex(data, "ScreenData:", 4);
     }
 #endif
-
-    for(byte x=baseX; x<IMG_WIDTH; x++){
-        for(byte y=baseY; y<IMG_HEIGHT; y++){
+    // DUMPVAR("baseX ",baseX);
+    // DUMPVAR("baseY ",baseY);
+    
+    for(int sy=0; sy<h; sy++){
+        for(int sx=0; sx<w; sx++){
+            int x = baseX+sx;
+            int y = baseY+sy;
             rgb *d = &img[y][x];
-            byte *s = data + ((x+(y*w))<<2);	// src pixels in uint32
+            byte *s = data + ((sx+(sy*w))<<2);	// src pixels in uint32
             d->r = *s++;
             d->g = *s++;
             d->b = *s++;
             // skip alpha
+            if(debugLevel==101){
+                DUMPRGB(img[y][x].r,img[y][x].g,img[y][x].b);
+                Serial.print(" ");
+            }
         }
 #ifdef DBG
-        if(debugLevel>100) Serial.println("/n");
+        if(debugLevel>100) Serial.println("");
 #endif
     }
 }
@@ -383,7 +430,7 @@ void initFrameBuffer(int i){
     for(byte x=0; x<IMG_WIDTH; x++){
         for(byte y=0; y<IMG_HEIGHT; y++){
             static int z=0;
-            z=y%8;
+            z=(y+(i/100))%8;
             img[y][x]= (z==0||z==1)?red:((z==2||z==3)?green:(z==4||z==5)?blue:black);
         }
     }
@@ -468,17 +515,16 @@ static void	dumpHex(void * startAddress, char* name, unsigned lines){
     
 	lineCount			=	0;
 	myAddressPointer	=	(unsigned long) startAddress;
-    sprintf(textString, "%s:\n", name);
-    Serial.print(textString);
+    Serial.println(name);
 	while (lineCount < lines) {
-		sprintf(textString, "%04X - ", myAddressPointer);
-		Serial.print(textString);
-		
-		asciiDump[0]		=	0;
+        Serial.print(myAddressPointer, HEX);
+		Serial.print(": ");
+		asciiDump[0] = 0;
 		for (ii=0; ii<16; ii++) {
-			theValue	=	pgm_read_byte_near(myAddressPointer);
-
-			sprintf(textString, "%02X ", theValue);
+			// theValue	=	pgm_read_byte_near(myAddressPointer);
+            theValue = *(byte *)myAddressPointer;
+            Serial.print(theValue, HEX);
+			sprintf(textString, "%2X ", theValue);
 			Serial.print(textString);
 			if ((theValue >= 0x20) && (theValue < 0x7f)) {
 				asciiDump[ii % 16]	=	theValue;

@@ -12,18 +12,19 @@ def getPixel(mov,frameOffset,x,y,z,options):
     # organized as RED[0...63], GRN[0...63], BLU[0...63]
     # support ROTATIONS which map the given x,y,z -> x',y',z'
     # NOTE: turns r,g,b pixels into r,g,b,a pixels
-    nx=x
+    nx=x		# fake rotation
     ny=y
     nz=z
-    pixOff = (z*8*8) + (y*8) + x
+    pixOff = (nz*8*8) + (ny*8) + nx
     return [mov[frameOffset+pixOff],
             mov[frameOffset+pixOff+64],
             mov[frameOffset+pixOff+128],
-            255]		# alpha or something else?
+            chr(0)]		# alpha or something else?
 
 
 def composeFrame(mov, frameNum, base, options):
     # note: though not gorgeous this takes less than a ms my laptop
+    # Source movie is RGB, but output is RGBA
     out = []
     frameOffset = frameNum*(8*8*8*3)+base
     for z in range(0,8):
@@ -33,26 +34,41 @@ def composeFrame(mov, frameNum, base, options):
     # flatten the list
     return ''.join([item for sublist in out for item in sublist])
 
+def testPattern(colors):
+    # will layer colors in Z
+    out = []
+    for z in range(0,8):
+        for y in range(0,8):
+            for x in range(0,8):
+                out.append(colors[z%len(colors)])
+    # flatten the list
+    return ''.join([item for sublist in out for item in sublist])
+
+def color(r,g,b):
+    return [chr(r),chr(g),chr(b),chr(0)]
+
+layerCake = testPattern([color(200,0,0),color(0,200,0),color(0,0,200),color(0,200,200)])
+
 def sendFrame(kelp, frame):
     # this is an awful hack to send a blob w/o doing CCoreOSC surgery
-    # Further(!), max Ethernet size is ~1500 bytes, so we need send the frame
+    # Further, max Ethernet size is ~1500 bytes, so we need send the frame
     # as two packets...
     m = CCore.OSC.OSCMessage()
     m.setAddress("/screenxy");
-    m.append(8)	# image size
-    m.append(8)
-    m.append(0)	# x=0
+    m.append(8)	# image size W, H - 8 by 32
+    m.append(8*4)
+    m.append(0)	# target X,Y
     m.append(0) # y=top half of image
-    m.append(frame[0:64*3*4],typehint='b')		# needs blob typehint
+    m.append(frame[0:(64*4)*4],typehint='b')		# needs blob typehint
     kelp.sender.send(m)
     time.sleep(0.001)
     # send second half
     m.clear("/screenxy");
-    m.append(8)		# image size
-    m.append(8)
+    m.append(8)		# image size - 8 by 32
+    m.append(8*4)
     m.append(0)		# x=0
     m.append(8*4)	# y=bottom half of image
-    m.append(frame[64*3*4:],typehint='b')		# needs blob typehint
+    m.append(frame[(64*4)*4:],typehint='b')		# needs blob typehint
     kelp.sender.send(m)
 
 
@@ -88,3 +104,5 @@ while not quitFlag:
     time.sleep(1.0/fps)
     frameNum = (frameNum+1)%frames
     print "."
+
+#sendFrame(kelp, testPattern([chr(100),chr(0),chr(0),chr(255)]))

@@ -10,11 +10,15 @@
 #ifndef GE35_h
 #define GE35_h
 
-typedef unsigned char byte;
+#include <stdint.h>
+typedef uint8_t byte;
 
 #include "GE35mapping.h"
 
-#define DUMPVAR(s,v) Serial.print(s); Serial.print(v);
+#define DUMPVAR(s,v) Serial.print(s); Serial.print("=");Serial.println((int)v);
+#define DUMPVARH(s,v) Serial.print(s); Serial.print(" 0x");Serial.println((int) v,HEX);
+#define DUMPPTR(s,v) Serial.print(s); Serial.print("= ");Serial.println((uint32_t) v, HEX);
+#define DUMPRGB(r,g,b) Serial.print((int)r); Serial.print(","); Serial.print((int)g); Serial.print(","); Serial.println((int)b); 
 
 struct rgb {
   byte r;
@@ -43,8 +47,12 @@ class GE35 {
 public:
     byte imgBright;
     rgb out[IMG_HEIGHT][IMG_WIDTH];		// output image buffer
-    int strandEnabled[STRAND_COUNT];
     int row[STRAND_COUNT];				// index of LED to display for each strand
+
+    // debug
+    int debugLevel;
+    int debugX;
+    int debugY;
 
     // Interrupt 
     /* static volatile bool sendFrameFlag;			// flags that there is data to send */
@@ -63,6 +71,16 @@ public:
 
     // util
     void fill(rgb [][IMG_WIDTH], rgb c);
+    void (*periodic)();		/* a function which will be called while doing 
+                               lengthy but non-time critical functions */
+    	
+    void setPeriodicFx(void (*fx)()){
+        periodic = fx;
+    };
+
+
+    void setDebugLevel(int level){ debugLevel=level; };
+    void setDebugXY(int x, int y){ debugX = x; debugY = y; };
 
 private:
     void makeFrame(byte index, byte r, byte g, byte b, byte i, byte *buffer);
@@ -71,9 +89,10 @@ private:
 	// Low Level I/O
     void setPin(byte pin);
     void clrPin(byte pin);
-    byte * getBufferAndMask(byte pin, byte &pinmask);
-    void composeAndSendFrame();
+    void clearPortMasks();
+    uint16_t *getBufferAndMask(byte pin, uint16_t &pinmask);
     void deferredSendFrame(byte pin, byte *bitbuffer);
+    void composeAndSendFrame();
     void sendFrame();	// sends 'deffered' serial comm buffer across all 'ports'
     void dumpFrame(byte *buffer);
 

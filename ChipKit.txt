@@ -8,9 +8,9 @@ groups of pins (right to left).
 
 -- Summary -- 
 // Single HDI
+J4: 8 pins (of 8) on top
 J5: 8 pins (of 8) analog pins along bottom
 J7: 5 pins (of 8)   "      "     "    "
-J4: 8 pins (of 8)
 
 // Dual HDI
 J3:  14 pins (of 16) "top left"

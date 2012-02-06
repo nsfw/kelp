@@ -37,7 +37,10 @@ Current performance w/ ISR:
            
 */
 
-#ifdef chipKIT
+// #define DEBUG_TIMING
+
+#ifdef __PIC32MX__
+#define OPT_BOARD_INTERNAL
 #undef USE_ISR
 #else
 #define USE_ISR
@@ -58,22 +61,26 @@ GE35::GE35(){
     portCmask = 0;
     imgBright = MAX_INTENSITY; 
     fill(out,black);
+
+    debugLevel=0;
+    debugX=0;
+    debugY=0;
 }
 
 extern strand strands[];
 
 // ISR related variables
 volatile bool sendFrameFlag;			// flags that there is data to send
+volatile byte sendISRPingPong = 0;
 byte tribitTimerValue;
 byte sendFramePingPong = 0;	// one to send, one to update
-byte *portAframeBuf;
-byte *portCframeBuf;
 GE35 *myGE35 = 0;
 
 void GE35::init() {
     int i=0;
+    myGE35 = this;			// used in ISR 
+
     while (i < STRAND_COUNT) {
-        strandEnabled[i]=1;
         digitalWrite(strands[i].pin, LOW);
         pinMode(strands[i].pin, OUTPUT);
         Serial.print("Configured strand ");
@@ -116,8 +123,6 @@ void GE35::init() {
 	TCNT2 = tribitTimerValue;
 	TIMSK2 |= (1<<TOIE2);	// enable interrupt
 #endif
-
-    myGE35 = this;			// used in ISR
 
     Serial.println("Initializing Strands");
 
@@ -259,8 +264,10 @@ void GE35::setGlobalIntensity(byte val){
 // 0 =   L H H 
 // 1 =   L L H
 
-#ifndef CHIPKIT32
+#ifndef __PIC32MX__	
+// ARDUINO SPECIFIC
 // !!WARNING!! THIS IS NON PORTABLE!! !!WARNING!!
+
 void GE35::setPin(byte pin){
     if(pin<30) PORTA |= (1<<(pin-22));
     else PORTC |= (1<<(pin-22));
@@ -281,7 +288,39 @@ byte * GE35::getBufferAndMask(byte pin, byte &pinmask){
         return portCframe[sendFramePingPong];
     }
 }
-#else	// CHIPKIT32 (pic32)
+
+#else	// chipKIT (pic32)
+
+#define MAXPORT _IOPORT_PG
+
+// Define "Frame buffers" for PortsA(1) through PortG(7)
+// NOTE: PORT0 is not defined!
+uint16_t portMasks[2][MAXPORT+1];			// remember what pins are being set - 0 = none
+uint16_t portFrames[2][MAXPORT+1][FRAMESIZE];
+
+extern const uint16_t PROGMEM digital_pin_to_bit_mask_PGM[];
+extern const uint8_t digital_pin_to_port_PGM[];
+extern const uint32_t port_to_output_PGM[];
+
+void GE35::clearPortMasks(){
+    for(int i=0; i<=MAXPORT; i++)
+        portMasks[sendFramePingPong][i]=0;
+}
+
+uint16_t * GE35::getBufferAndMask(byte pin, uint16_t &pinmask){
+    int port = digital_pin_to_port_PGM[pin];
+    if(!port){
+        Serial.print("INVALID PORT FOR PIN ");
+        Serial.println(pin);
+        return 0;
+    }
+    pinmask = digital_pin_to_bit_mask_PGM[pin];
+    portMasks[sendFramePingPong][port] |= pinmask;	// remember we're writing this pin
+    // DUMPVAR("gb port", port);
+    // DUMPVAR(" gb pinmask", pinmask);
+    return portFrames[sendFramePingPong][port];		// return pointer to port buffer
+}
+
 
 #endif
 
@@ -296,24 +335,33 @@ void GE35::composeAndSendFrame(){
     
     byte buffer[26];
 
+    clearPortMasks();	// keep track of pins we actually xmit on
+
     // Accumulate bit streams for ALL strands in portAframe[], portCframe[], etc...
     unsigned long composeLoop = millis();
     for (byte s=0; s<STRAND_COUNT; s++){
         int index = row[s];
-        if ((index != -1) && (strandEnabled[s]!=0)){
-            byte x = strands[s].x[index];
-            byte y = strands[s].y[index];
+        if (index != -1){
+            int x = strands[s].x[index];
+            int y = strands[s].y[index];
             rgb *pix = &out[y][x];
+            if(debugLevel==1 && x==debugX && y==debugY){
+                Serial.print("out["); Serial.print(x); Serial.print(",");
+                Serial.print(y); Serial.print("]=");
+                DUMPRGB(pix->r,pix->g,pix->b);
+            }
+                
             // unsigned long makeFrameTime = millis();
             makeFrame(index, pix->r, pix->g, pix->b, imgBright, buffer);
             // displayTimeSince(makeFrameTime,"makeFrame");
             // unsigned long defferedSendFrameTime = millis();
             deferredSendFrame(strands[s].pin, buffer);
             // displayTimeSince(defferedSendFrameTime, "defferedSendFrame");
+            // if (periodic) (*periodic)();
         }
     }
     // displayTimeSince(composeLoop,"composeLoop");
-    // unsigned long sendFrameTime = millis();
+    unsigned long sendFrameTime = millis();
 
     // sends accumulated bitstreams out at max serial rate
     sendFrame();
@@ -327,32 +375,33 @@ void GE35::deferredSendFrame(byte pin, byte *bitbuffer){
     // toggle associated bit in associated port buffer array based on data in
     // bitbuffer, representing the 26bit pattern to send on this pin
 
-    byte pinmask;
+    uint16_t pinmask;
 
     // points at appropriate buffer (respects ping-pong) for this pin and sets pinmask
-    byte *slicePtr = getBufferAndMask(pin, pinmask);
+    uint16_t *slicePtr = getBufferAndMask(pin, pinmask);
 
-    sliceSet(slicePtr++);	// start bit
+    sliceSet(slicePtr++);   // start bit
     for(byte i=0; i<26; i++){
-        if(bitbuffer[i]){	// send a 1 : L L H
+        if(bitbuffer[i]){   // send a 1 : L L H
             sliceClr(slicePtr++);
             sliceClr(slicePtr++);
             sliceSet(slicePtr++);
-        } else {			// send a 0: L H H
+        } else {            // send a 0: L H H
             sliceClr(slicePtr++);
             sliceSet(slicePtr++);
             sliceSet(slicePtr++);
         }
     }
-    sliceClr(slicePtr++);	// back to LOW inter frame
+    sliceClr(slicePtr++);   // back to LOW inter frame
 }
 
 void GE35::sendFrame(){
+
 #ifdef USE_ISR
-    while(sendFrameFlag);	// wait if we're still processing last buffer
+    while(sendFrameFlag);   // wait if we're still processing last buffer
 #endif
-    portAframeBuf = portAframe[sendFramePingPong];
-    portCframeBuf = portCframe[sendFramePingPong];
+
+    sendISRPingPong = sendFramePingPong;        // send current buffer
     sendFramePingPong=(sendFramePingPong+1)&1;	// toggle buffers
     sendFrameFlag = 1;
 
@@ -360,28 +409,46 @@ void GE35::sendFrame(){
 // Just delay instead of using ISR
     while(sendFrameFlag){
         sendFrameISR();
-        delayMicroseconds(9);
+        delayMicroseconds(6);	
     }
 #endif
 }
 
 
 void GE35::sendFrameISR(){
+    // Say it in one precise parallel blast for all strands
+    // Send the buffer selected by sendISRPingPong
+
     static byte i = 0;	// current 'tribit'
+
+    volatile uint32_t	*latchPort;
+    uint16_t mask;
+    uint16_t current;
+    uint16_t *portFrame;
     
     if(!sendFrameFlag) return;
 
     // selectively set bits
-    PORTA = (PORTA & ~portAmask) | (portAframeBuf[i] & portAmask);	
-    PORTC = (PORTC & ~portCmask) | (portCframeBuf[i] & portCmask);	
+    for(int port=1; port <= MAXPORT; port++){
+        mask = portMasks[sendISRPingPong][port];
+        // DUMPVAR("port", port);
+        // DUMPVAR(" mask", mask);
+        if(mask){	// only process if activity on this port
+            latchPort = portOutputRegister(port);
+            current = *portInputRegister(port);
+            *latchPort = (current & ~mask) | (portFrames[sendISRPingPong][port][i] & mask);
+            // DUMPVAR(" latchPort",(uint32_t) latchPort);
+            // DUMPVAR(" current", current);
+            // DUMPVAR(" rb:",*portInputRegister(port));
+        }
+    }
 
     i++;
-
+    
     if(i>=FRAMESIZE){
         i=0;				// reset
         sendFrameFlag = 0;	// done sending
     }
-
 }
 
 void GE35::dumpFrame(byte *buffer){

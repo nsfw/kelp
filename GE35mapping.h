@@ -29,6 +29,7 @@
 // CONFIGURATION INFORMATION 
 #define MAX_STRAND_LEN 35	// Should be the ACTUAL LENGTH OF LONGEST STRAND - electrical max is 62
 #define STRAND_COUNT (8*4)		// Needs to be ACTUAL NUMBER OF DATA LINES IN USE
+// #define STRAND_COUNT (4)		// Needs to be ACTUAL NUMBER OF DATA LINES IN USE
 
 // storage for 8x8x8 - mapped as an 8 x 64 tall image
 #define IMG_WIDTH (8)			
@@ -121,19 +122,19 @@ typedef struct a_strand {
       UP_DOWN_Y(BASE_Y) \
     }
 
-// !!NOTE!! Macro assumes that PINS are CONTIGUOUS and INCREASEd
+// !!NOTE!! Macro assumes that PINS are CONTIGUOUS and INCREASE
 #define PANEL(PIN,Z) \
     STRANDS(PIN+0,0,Z*8),	\
     STRANDS(PIN+1,2,Z*8),	\
     STRANDS(PIN+2,4,Z*8),	\
     STRANDS(PIN+3,6,Z*8)
 
-// Each panel layer is mapped in the Y direction
+// Each panel layer is mapped in the Y direction in the image buffer
 strand strands[]={
 // len, pin, {x-coords}{y-coords}, initial color
-    PANEL(PIN_PANEL_0_STRAND_A, 0),
-    PANEL(PIN_PANEL_1_STRAND_A, 1),
-    PANEL(PIN_PANEL_2_STRAND_A, 2),
+    PANEL(PIN_PANEL_0_STRAND_A, 0),	// z=0 0,0 - 7,7
+    PANEL(PIN_PANEL_1_STRAND_A, 1),	// z=1 0,8 - 7,15
+    PANEL(PIN_PANEL_2_STRAND_A, 2), // 
     PANEL(PIN_PANEL_3_STRAND_A, 3),
     PANEL(PIN_PANEL_4_STRAND_A, 4),
     PANEL(PIN_PANEL_5_STRAND_A, 5),
