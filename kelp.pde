@@ -33,13 +33,12 @@
 
 #ifdef __PIC32MX__ // -- chipKIT32 --
 
-#include <chipKITEthernet.h>
+// #include <chipKITEthernet.h>
+#include <DNETcK.h>
 #include <chipKITOSC.h>
 #define strncasecmp strncmp
 
 #endif
-
-OSCServer osc;
 
 // rgb <-> hsv
 #include "RGBConverter.h"
@@ -70,7 +69,8 @@ byte myIp[]  = { 192, 168, 69, 69 };
 #define CHIPKIT_TEST
 #ifdef CHIPKIT_TEST
 byte myMac[] = { 0, 0, 0, 0, 0, 0 };	// let ethernet library assign something
-byte myIp[]  = { 139, 104, 88, 199 };
+// byte myIp[]  = { 139, 104, 88, 199 };
+IPv4 myIp = { 139, 104, 88, 199 };
 #endif
 
 int  serverPort  = 9999;
@@ -104,7 +104,7 @@ GE35 ge35;
 void periodic(){
     static int i=0;
     // On chipKIT high volume ethernet activity needs high volume service
-    if((i++ & 3)==0)  Ethernet.PeriodicTasks();
+    if((i++ & 3)==0)  DNETcK::periodicTasks();
 }
 
 #include "exceptions.h"
@@ -124,28 +124,46 @@ void dumpExceptionInfo(){
 #endif
 }
 
+
+///////////////////////////////////////////////////////////////////////////////
+// DNET Storage
+///////////////////////////////////////////////////////////////////////////////
+// Server Datagram Cache
+// remember to give the UDP client a datagram cache
+byte rgbUDPClientCache[8096];
+UdpClient udpClient(rgbUDPClientCache, sizeof(rgbUDPClientCache));
+
+// remember to give the server a datagram cache that is 
+// equal or larger than the client datagram cache
+const int cPending = 1; // number of clients the server will hold until accepted
+byte rgbUDPServerCache[cPending * sizeof(rgbUDPClientCache)];
+UdpServer udpServer(rgbUDPServerCache, sizeof(rgbUDPServerCache), cPending);
+
 void setup() {
     Serial.begin(57600);
 
     Serial.println("Device Start -- ");
-    DUMPVAR("IP: ",(int) myIp[0]);
-    DUMPVAR(".",(int) myIp[1]);
-    DUMPVAR(".",(int) myIp[2]);
-    DUMPVAR(".",(int) myIp[3]);
+    DUMPVAR("IP: ",(int) myIp.rgbIP[0]);
+    DUMPVAR(".",(int) myIp.rgbIP[1]);
+    DUMPVAR(".",(int) myIp.rgbIP[2]);
+    DUMPVAR(".",(int) myIp.rgbIP[3]);
     DUMPVAR(" port: ", serverPort);
     Serial.println("");
 
     Serial.println("Initing GE35 --");
     ge35.init();
 
-    Ethernet.begin(myMac ,myIp); 
-
+    // Ethernet.begin(myMac ,myIp); 
+    DNETcK::begin(myIp);
+    
 #ifdef __AVR__
     osc.sockOpen(serverPort);
 #endif
+
 #ifdef __PIC32MX__
-    osc.begin(serverPort);		// newer version of OSC
-    osc.addCallback("*",oscDispatch);
+    // osc.begin(serverPort);		// newer version of OSC
+    // osc.addCallback("*",oscDispatch);
+    // udpServer.startListening(serverPort);
 #endif
 
     resetDisplay(0);			// put *something* in the frame buffer
@@ -173,6 +191,149 @@ byte noUpdate=0;		// some OSC commands don't need a graphic refresh!
 #define CATCH if(0)
 #endif
 
+typedef enum
+{
+    NONE = 0,
+    LISTEN,
+    ISLISTENING,
+    AVAILABLECLIENT,
+    ACCEPTCLIENT,
+    READ,
+    WRITE,
+    CLOSE,
+    EXIT,
+    DONE
+} STATE;
+
+STATE state = LISTEN;
+
+int readOSC(){
+	// return 1 if sucessfully processed an OSC packet, -1 if error, 0 if nothing interesting
+    static unsigned tStart = 0;
+    unsigned int tWait = 60*1000;
+    byte rgbRead[1500];
+    int cbRead = 0;
+    int count = 0;
+    int retVal = 0;
+
+    OSCMessage msg;
+    OSCDecoder decoder;
+
+    // manage connection
+    switch(state)
+    {
+    case LISTEN:
+        if(udpServer.startListening(serverPort))
+        {
+            Serial.println("Started Listening");
+            state = ISLISTENING;
+        }
+        else
+        {
+            state = EXIT;
+        }
+        break;
+    // not specifically needed, we could go right to AVAILABLECLIENT
+    // but this is a nice way to print to the serial monitor that we are 
+    // actively listening.
+    case ISLISTENING:
+        if(udpServer.isListening())
+        {
+            Serial.print("Listening on port: ");
+            Serial.print(serverPort, DEC);
+            Serial.println("");
+            state = AVAILABLECLIENT;
+        }
+        else
+        {
+            state = EXIT;
+        }
+        break;
+    // wait for a connection
+    case AVAILABLECLIENT:
+        if((count = udpServer.availableClients()) > 0)
+        {
+            Serial.print("Got ");
+            Serial.print(count, DEC);
+            Serial.println(" clients pending");
+            state = ACCEPTCLIENT;
+        }
+        break;
+    // accept the connection
+    case ACCEPTCLIENT:
+        // probably unneeded, but just to make sure we have
+        // udpClient in the  "just constructed" state
+        udpClient.close(); 
+        // accept the client 
+        if(udpServer.acceptClient(&udpClient))
+        {
+            Serial.println("Got a Connection");
+            state = READ;
+            tStart = (unsigned) millis();
+        }
+        // this probably won't happen unless the connection is dropped
+        // if it is, just release our socket and go back to listening
+        else
+        {
+            state = CLOSE;
+        }
+        break;
+
+        // wait fot the read, but if too much time elapses (5 seconds)
+        // we will just close the udpClient and go back to listening
+    case READ:
+        // see if we got anything to read
+        if((cbRead = udpClient.available()) > 0)
+        {
+            cbRead = cbRead < sizeof(rgbRead) ? cbRead : sizeof(rgbRead);
+            cbRead = udpClient.readDatagram(rgbRead, cbRead);
+            tStart = (unsigned) millis();
+
+            Serial.print("Got ");
+            Serial.print(cbRead, DEC);
+            Serial.println(" bytes");
+
+            retVal = 1;
+            // parse OSC (hating out inefficient this is)
+            if( decoder.decode( &msg ,rgbRead ) < 0 )
+                retVal = -1;
+            else
+                oscDispatch(&msg);
+        }
+        // If too much time elapsed between reads, close the connection
+        else if( (((unsigned) millis()) - tStart) > tWait )
+        {
+            state = CLOSE;
+        }
+        break;
+        
+    // close our udpClient and go back to listening
+    case CLOSE:
+        udpClient.close();
+        Serial.println("Closing UdpClient");
+        Serial.println("");
+        state = ISLISTENING;
+        break;
+
+    // something bad happen, just exit out of the program
+    case EXIT:
+        udpClient.close();
+        udpServer.close();
+        Serial.println("Something went wrong, sketch is done.");  
+        state = DONE;
+        break;
+
+    // do nothing in the loop
+    case DONE:
+    default:
+        break;
+    }
+
+    DNETcK::periodicTasks();
+
+    return retVal;
+}
+
 void loop(){
     TRY {
         // Serial.println("loop");
@@ -180,7 +341,7 @@ void loop(){
         static int osccnt=0;
         static int loopcnt=0;
         int ret = 0;
-        while((ret=osc.availableCheck())>0){	// process all prior to displaying
+        while((ret=readOSC())>0){	// process all prior to displaying
             // above has side effect of calling handler
             // Serial.print("OSC:"); Serial.println(osccnt++);
             dirty=1;
@@ -192,7 +353,7 @@ void loop(){
         if(ret<0) Serial.print("?");	// error in decode
         
 #ifdef __PIC32MX__
-        Ethernet.PeriodicTasks();	// chipKIT service Ethernet
+        // Ethernet.PeriodicTasks();	// chipKIT service Ethernet
 #endif
 
         if(noOSC){
