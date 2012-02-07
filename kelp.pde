@@ -18,8 +18,8 @@
 
 // #define chipKIT 1 -- defined in platforms.txt (should be __PIC32MX__)
 
-#ifndef __PIC32MX__
-// -- ARDUINO --
+#ifdef __AVR__  // ARDUINO
+
 // Ethernet Support
 // #include <SPI.h>
 // #include <Client.h>
@@ -28,16 +28,18 @@
 // #include <Udp.h>
 // // OSC
 // #include <ArdOSC.h>
-#else
-// -- chipKIT32 --
+
+#endif 
+
+#ifdef __PIC32MX__ // -- chipKIT32 --
+
 #include <chipKITEthernet.h>
 #include <chipKITOSC.h>
-
 #define strncasecmp strncmp
+
 #endif
 
 OSCServer osc;
-// OSCMessage *oscmsg;
 
 // rgb <-> hsv
 #include "RGBConverter.h"
@@ -96,15 +98,14 @@ int displayCurrentColor=0;
 
 GE35 ge35;
 
+
+#ifdef __PIC32MX__
+
 void periodic(){
     static int i=0;
     // On chipKIT high volume ethernet activity needs high volume service
     if((i++ & 3)==0)  Ethernet.PeriodicTasks();
 }
-
-
-
-#ifdef __PIC32MX__
 
 #include "exceptions.h"
 
@@ -139,9 +140,10 @@ void setup() {
 
     Ethernet.begin(myMac ,myIp); 
 
-#ifndef __PIC32MX__
+#ifdef __AVR__
     osc.sockOpen(serverPort);
-#else
+#endif
+#ifdef __PIC32MX__
     osc.begin(serverPort);		// newer version of OSC
     osc.addCallback("*",oscDispatch);
 #endif
@@ -149,7 +151,7 @@ void setup() {
     resetDisplay(0);			// put *something* in the frame buffer
     ge35.sendImage();
 
-    ge35.setPeriodicFx(periodic);
+    // ge35.setPeriodicFx(periodic);
 
     debugLevel=0;
     noScroll();
@@ -165,13 +167,20 @@ void setup() {
 byte noOSC=1;
 byte noUpdate=0;		// some OSC commands don't need a graphic refresh!
 
+#ifdef __AVR__
+// no try/catch on AVR
+#define TRY
+#define CATCH if(0)
+#endif
+
 void loop(){
     TRY {
         // Serial.println("loop");
         static int dirty=0;
         static int osccnt=0;
         static int loopcnt=0;
-        while(osc.availableCheck()){	// process all prior to displaying
+        int ret = 0;
+        while((ret=osc.availableCheck())>0){	// process all prior to displaying
             // above has side effect of calling handler
             // Serial.print("OSC:"); Serial.println(osccnt++);
             dirty=1;
@@ -179,12 +188,15 @@ void loop(){
                 resetDisplay(0);	// get back to a known state if someone is talking to us
                 noOSC=0;
             }
-        }    
+        }
+        if(ret<0) Serial.print("?");	// error in decode
         
+#ifdef __PIC32MX__
         Ethernet.PeriodicTasks();	// chipKIT service Ethernet
+#endif
 
         if(noOSC){
-            Serial.println("idle");
+            // Serial.println("idle");
             resetDisplay(loopcnt++);
             dirty=1;
         }
@@ -193,7 +205,7 @@ void loop(){
            (dirty || hueScrollRate || vScrollRate || hScrollRate || displayCurrentColor )){
             prepOutBuffer();	// copies image buffer to OUT (may process)
             ge35.sendImage();	// copy output buffer to LEDS
-            Serial.print(".");
+            // Serial.print(".");
             dirty = 0;
         }
 
@@ -202,9 +214,6 @@ void loop(){
         // debug - output update rate
         static int tog = 0;
         digitalWrite(22, tog++&0x01);
-        
-        // fill(green);
-        // dirty=1;
     } CATCH {
         dumpExceptionInfo();
     }
@@ -220,7 +229,8 @@ void oscDispatch(OSCMessage *oscmsg){
     char *p = oscmsg->getOSCAddress();
 
     if(*p != '/'){
-        Serial.println("MALFORMED OSC");
+        Serial.println("M");
+        if(debugLevel) dumpHex(oscmsg, "oscmsg", 4);
         return;
     }
 
@@ -340,6 +350,7 @@ void copyImage(OSCMessage *oscmsg){
     }
 
     byte *data = (byte*) oscmsg->getArg(2)->_argData;
+
 #ifdef DBG
     if(debugLevel==101){
         // pf("Blob Length: %d\n",oscmsg->getBlob(2)->len);
@@ -378,6 +389,7 @@ void copyImageXY(OSCMessage *oscmsg){
         dumpHex(data, "ScreenData:", 4);
     }
 #endif
+
     // DUMPVAR("baseX ",baseX);
     // DUMPVAR("baseY ",baseY);
     

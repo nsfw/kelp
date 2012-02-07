@@ -49,6 +49,8 @@ def color(r,g,b):
 
 layerCake = testPattern([color(200,0,0),color(0,200,0),color(0,0,200),color(0,200,200)])
 
+interMsgDelay=0.010
+
 def sendFrame(kelp, frame):
     # this is an awful hack to send a blob w/o doing CCoreOSC surgery
     # Further, max Ethernet size is ~1500 bytes, so we need send the frame
@@ -61,7 +63,7 @@ def sendFrame(kelp, frame):
     m.append(0) # y=top half of image
     m.append(frame[0:(64*4)*4],typehint='b')		# needs blob typehint
     kelp.sender.send(m)
-    time.sleep(0.001)
+    time.sleep(interMsgDelay)
     # send second half
     m.clear("/screenxy");
     m.append(8)		# image size - 8 by 32
@@ -101,7 +103,7 @@ while not quitFlag:
     frame = composeFrame(movie, frameNum, base, options)
     # kelp.send("/888RGB",[frame]) -- sending a blob doesn't work w/ current CCore
     sendFrame(kelp, frame)
-    time.sleep(1.0/fps)
+    time.sleep(max((1.0/fps)-interMsgDelay, 0))
     frameNum = (frameNum+1)%frames
     print "."
 

@@ -39,26 +39,17 @@ Current performance w/ ISR:
 
 // #define DEBUG_TIMING
 
-#ifdef __PIC32MX__
-#define OPT_BOARD_INTERNAL
-#undef USE_ISR
-#else
-#define USE_ISR
-#endif
-
-#if ARDUINO>=100
-#include <Arduino.h>	// Arduino 1.0
-#else
-#include <Wprogram.h>	// Arduino 0022
-#endif
 
 #define GE35_NO_DATA	// don't instantiate the 'strand' structure
 #include "GE35.h"		// includes configuration information (e.g. mapping)
 
+#define USE_ISR
+#if defined(__PIC32MX__) && defined(USE_ISR)
+#include <peripheral/timer.h>
+#endif
+
 GE35::GE35(){
     rgb black = {0,0,0};
-    portAmask = 0;		// will accumulate output bits for pins we're driving
-    portCmask = 0;
     imgBright = MAX_INTENSITY; 
     fill(out,black);
 
@@ -70,10 +61,12 @@ GE35::GE35(){
 extern strand strands[];
 
 // ISR related variables
-volatile bool sendFrameFlag;			// flags that there is data to send
-volatile byte sendISRPingPong = 0;
+volatile bool sendFrameFlag=0;			// flags that there is data to send
+volatile int sendISRPingPong = 0;
+volatile int isrcnt=0;
+volatile int sendFramePingPong = 0;	// one to send, one to update
+
 byte tribitTimerValue;
-byte sendFramePingPong = 0;	// one to send, one to update
 GE35 *myGE35 = 0;
 
 void GE35::init() {
@@ -95,7 +88,7 @@ void GE35::init() {
     // init data sending interrupt routine on TIMER2
     sendFrameFlag = 0; 		// nothing to send
 
-#ifdef USE_ISR
+#if defined(USE_ISR) && defined(__AVR__)
 	// no interrupt during setup
     TIMSK2 &= ~(1<<TOIE2);	// clear timer2 interrupt enable
 
@@ -122,6 +115,15 @@ void GE35::init() {
 	// TCNT2 value loaded and interrupt enabled
 	TCNT2 = tribitTimerValue;
 	TIMSK2 |= (1<<TOIE2);	// enable interrupt
+    Serial.println("Note:Using AVR Timer 2 ISR");
+#endif
+
+#if defined(__PIC32MX__) && defined(USE_ISR)
+    Serial.println("ISR-CONFIG");
+    // Prescaler = 1 (80Mhz), 800 = 10us; Source Internal
+    OpenTimer3( T3_ON | T3_PS_1_1 | T3_SOURCE_INT, 800);
+    ConfigIntTimer3((T3_INT_ON | T3_INT_PRIOR_3 ));
+    Serial.println("Note:Using PIC32 Timer 3 ISR");
 #endif
 
     Serial.println("Initializing Strands");
@@ -144,11 +146,21 @@ void GE35::init() {
     Serial.println(" -- done");
 }
 
-#ifdef USE_ISR
+#if defined(__AVR__) && defined(USE_ISR)
 ISR(TIMER2_OVF_vect)
 {
     TCNT2 = tribitTimerValue;		// reload timer
     if(myGE35) myGE35->sendFrameISR();
+}
+#endif
+
+#if defined(__PIC32MX__) && defined(USE_ISR)
+extern "C" {
+void __ISR(_TIMER_3_VECTOR,IPL3AUTO) timerISR(void){
+    mT3ClearIntFlag();  // Clear interrupt flag
+    if(myGE35) myGE35->sendFrameISR();
+    // mT3ClearIntFlag();  // Clear interrupt flag
+}
 }
 #endif
 
@@ -264,7 +276,7 @@ void GE35::setGlobalIntensity(byte val){
 // 0 =   L H H 
 // 1 =   L L H
 
-#ifndef __PIC32MX__	
+#ifdef __AVR__
 // ARDUINO SPECIFIC
 // !!WARNING!! THIS IS NON PORTABLE!! !!WARNING!!
 
@@ -291,17 +303,6 @@ byte * GE35::getBufferAndMask(byte pin, byte &pinmask){
 
 #else	// chipKIT (pic32)
 
-#define MAXPORT _IOPORT_PG
-
-// Define "Frame buffers" for PortsA(1) through PortG(7)
-// NOTE: PORT0 is not defined!
-uint16_t portMasks[2][MAXPORT+1];			// remember what pins are being set - 0 = none
-uint16_t portFrames[2][MAXPORT+1][FRAMESIZE];
-
-extern const uint16_t PROGMEM digital_pin_to_bit_mask_PGM[];
-extern const uint8_t digital_pin_to_port_PGM[];
-extern const uint32_t port_to_output_PGM[];
-
 void GE35::clearPortMasks(){
     for(int i=0; i<=MAXPORT; i++)
         portMasks[sendFramePingPong][i]=0;
@@ -320,7 +321,6 @@ uint16_t * GE35::getBufferAndMask(byte pin, uint16_t &pinmask){
     // DUMPVAR(" gb pinmask", pinmask);
     return portFrames[sendFramePingPong][port];		// return pointer to port buffer
 }
-
 
 #endif
 
@@ -398,7 +398,7 @@ void GE35::deferredSendFrame(byte pin, byte *bitbuffer){
 void GE35::sendFrame(){
 
 #ifdef USE_ISR
-    while(sendFrameFlag);   // wait if we're still processing last buffer
+    while(sendFrameFlag);
 #endif
 
     sendISRPingPong = sendFramePingPong;        // send current buffer
@@ -419,13 +419,14 @@ void GE35::sendFrameISR(){
     // Say it in one precise parallel blast for all strands
     // Send the buffer selected by sendISRPingPong
 
-    static byte i = 0;	// current 'tribit'
+    static int i = 0;	// current 'tribit'
 
     volatile uint32_t	*latchPort;
     uint16_t mask;
     uint16_t current;
     uint16_t *portFrame;
-    
+
+    isrcnt++;			// debug
     if(!sendFrameFlag) return;
 
     // selectively set bits

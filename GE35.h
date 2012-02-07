@@ -10,6 +10,14 @@
 #ifndef GE35_h
 #define GE35_h
 
+#define OPT_BOARD_INTERNAL	// let us see pin/port details
+
+#if ARDUINO>=100
+#include <Arduino.h>	// Arduino 1.0
+#else
+#include <Wprogram.h>	// Pre 1.0
+#endif
+
 #include <stdint.h>
 typedef uint8_t byte;
 
@@ -31,6 +39,7 @@ struct rgb {
 // Low level Serial Rate -- need to adjust based on uController performance
 // tribit - is 1/3rd of a 30us bit time (10us)
 // quiettime is 1 bit time (30us)
+// Lights seem to be happy running faster (like 7us) too
 
 // !!WARNING!! NOT PORTABLE
 // ATMEGA 2560 
@@ -42,6 +51,13 @@ struct rgb {
 
 // MAX of 0xff seems to glitch things
 #define MAX_INTENSITY 0x0f2
+
+#ifdef __PIC32MX__
+#define MAXPORT _IOPORT_PG
+extern const uint16_t PROGMEM digital_pin_to_bit_mask_PGM[];
+extern const uint8_t digital_pin_to_port_PGM[];
+extern const uint32_t port_to_output_PGM[];
+#endif
 
 class GE35 {
 public:
@@ -98,6 +114,8 @@ private:
 
 public:
 	// Deferred I/O storage
+
+#ifdef __AVR__
     // !! Warning this is uController specific !! Not Portable! !!
 
 	// pins 22-29 PORTA - ping / pong frame buffers
@@ -107,6 +125,14 @@ public:
 	// pins 30-37 PORTC
 	byte portCframe[2][FRAMESIZE];	
 	byte portCmask;			
+#endif
+
+#ifdef __PIC32MX__
+// Define "Frame buffers" for PortsA(1) through PortG(7)
+// NOTE: PORT0 is not defined!
+uint16_t portMasks[2][MAXPORT+1];			// remember what pins are being set - 0 = none
+uint16_t portFrames[2][MAXPORT+1][FRAMESIZE];
+#endif
 };
 
 #endif
