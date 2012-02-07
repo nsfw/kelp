@@ -87,13 +87,6 @@ public:
 
     // util
     void fill(rgb [][IMG_WIDTH], rgb c);
-    void (*periodic)();		/* a function which will be called while doing 
-                               lengthy but non-time critical functions */
-    	
-    void setPeriodicFx(void (*fx)()){
-        periodic = fx;
-    };
-
 
     void setDebugLevel(int level){ debugLevel=level; };
     void setDebugXY(int x, int y){ debugX = x; debugY = y; };

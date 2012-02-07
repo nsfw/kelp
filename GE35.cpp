@@ -357,7 +357,6 @@ void GE35::composeAndSendFrame(){
             // unsigned long defferedSendFrameTime = millis();
             deferredSendFrame(strands[s].pin, buffer);
             // displayTimeSince(defferedSendFrameTime, "defferedSendFrame");
-            // if (periodic) (*periodic)();
         }
     }
     // displayTimeSince(composeLoop,"composeLoop");
