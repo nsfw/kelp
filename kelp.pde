@@ -65,7 +65,8 @@ byte myIp[]  = { 192, 168, 69, 69 };
 
 #define CHIPKIT_TEST
 #ifdef CHIPKIT_TEST
-IPv4 myIp = { 139, 104, 88, 199 };
+// IPv4 myIp = { 139, 104, 88, 199 };
+IPv4 myIp = { 198, 178, 187, 122 };	// direct
 #endif
 
 int  serverPort  = 9999;
@@ -135,6 +136,7 @@ void setup() {
     DUMPVAR(" port: ", serverPort);
     Serial.println("");
 
+    delay(1000);
     Serial.println("Initing GE35 --");
     ge35.init();
 
@@ -567,7 +569,8 @@ void initFrameBuffer(int i){
     for(byte x=0; x<IMG_WIDTH; x++){
         for(byte y=0; y<IMG_HEIGHT; y++){
             static int z=0;
-            z=(y+(i/100))%8;
+            //            z=(y+(i/100))%8;
+            z=(y+(i/5))%8;
             img[y][x]= (z==0||z==1)?red:((z==2||z==3)?green:(z==4||z==5)?blue:black);
         }
     }
@@ -660,9 +663,8 @@ static void	dumpHex(void * startAddress, char* name, unsigned lines){
 		for (ii=0; ii<16; ii++) {
 			// theValue	=	pgm_read_byte_near(myAddressPointer);
             theValue = *(byte *)myAddressPointer;
+            if(theValue<0x10) Serial.print("0");
             Serial.print(theValue, HEX);
-			sprintf(textString, "%2X ", theValue);
-			Serial.print(textString);
 			if ((theValue >= 0x20) && (theValue < 0x7f)) {
 				asciiDump[ii % 16]	=	theValue;
             }
