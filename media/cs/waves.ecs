@@ -1,0 +1,11 @@
+for(f=0;f<256;f++)
+{
+	drawbox(f,0,0,0,7,7,7,0,0,0,5);
+	for(x=0;x<8;x++)
+		for(y=0;y<8;y++)
+		{
+			drawpoint(f,x,3*mathsin(x*57.1+y*57.1+f/5)/1000+4,y,0,255,0)
+			drawpoint(f,x,3*mathsin(x*57.1+y*57.1+f/5)/1000+4-1,y,100,200,0)
+			drawpoint(f,x,3*mathsin(x*57.1+y*57.1+f/5)/1000+4+1,y,0,200,100)
+		}
+}
