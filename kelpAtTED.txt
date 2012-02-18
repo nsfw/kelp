@@ -1,0 +1,22 @@
+KELP is an LED based Aquatic Light Sculpture.
+
+KELP is 8' by 8' wide and 6' tall; and composed of 64 individually
+floating "strands".
+
+Each strand contains 16 low voltage (5 VDC) water proof addressable
+RGB LEDs, incased in air filled (for floatation) sealed plastic
+sleaves with a cloth covering.
+
+Mechanically, 8 Strands are attached to a 1" PVC pipe to compose a
+'panel'. There are 8 panels connected with additional PVC spacers.
+
+The piece has positive buoyancy, so will be held to the bottom of the
+pool using waterproof sandbags designed for usage in pools.
+
+Power will be provided by on "onshore" solar charged battery, located
+up to 40' away from the piece, connected by light gauge cables that
+will be placed in a "Yellow Jacket" cable tray. All LEDs and Control
+electronics operate on 5VDC and are ground isolated.
+
+
+
