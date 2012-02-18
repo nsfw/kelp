@@ -161,6 +161,9 @@ def sendFrame(kelp, frame):
 
 
 movies=[
+    "../media/cs/CUBES.eca",
+    "../media/cs/TED ACTIVE RAINBOW TRAIN.eca",
+    "../media/cs/TED RAINBOW ROTO.eca",
     "../media/raw888/Waves_8x8x8_color.raw",
     "../media/raw888/TestXYZ_8x8x8_color.raw",
     "../media/raw888/TwoBalls_8x8x8_color.raw",
@@ -169,8 +172,9 @@ movies=[
 
 import select
 import sys
-# Still requires that you 
-def getKye():
+
+# requires use to hit return!
+def getKey():
     if select.select([sys.stdin], [], [], 0) == ([sys.stdin], [], []):
         return sys.stdin.read(1)
     else:
@@ -196,7 +200,7 @@ def playMovie(fn,fps,options):
         sendFrame(kelp, frame)
         time.sleep(max((1.0/fps)-interMsgDelay, 0))
         frameNum = (frameNum+1)%frames
-        quitFlag = nonBlockingReadChar()
+        quitFlag = getKey()
         if(quitFlag):
             break
     return quitFlag
