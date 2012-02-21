@@ -85,12 +85,12 @@ typedef struct a_strand {
 #define PIN_PANEL_6_STRAND_C 20
 #define PIN_PANEL_6_STRAND_D 21
 
-// J9 big dual HDI on right
+// J9 big dual HDI on right 
 
 #define PIN_PANEL_7_STRAND_A 30
-#define PIN_PANEL_7_STRAND_B 31
-#define PIN_PANEL_7_STRAND_C 32
-#define PIN_PANEL_7_STRAND_D 33
+#define PIN_PANEL_7_STRAND_B 32
+#define PIN_PANEL_7_STRAND_C 34
+#define PIN_PANEL_7_STRAND_D 36
 
 #ifndef GE35_NO_DATA
 
@@ -133,6 +133,14 @@ typedef struct a_strand {
     STRANDS(PIN+2,4,Z*8),	\
     STRANDS(PIN+3,6,Z*8)
 
+// !!NOTE!! Macro assumes that PINS are CONTIGUOUS and INCREASE
+// This one uses every other pin, which is useful on J9
+#define PANEL_ON2S(PIN,Z) \
+    STRANDS(PIN+0,0,Z*8),	\
+    STRANDS(PIN+2,2,Z*8),	\
+    STRANDS(PIN+4,4,Z*8),	\
+    STRANDS(PIN+6,6,Z*8)
+
 // Each panel layer is mapped in the Y direction in the image buffer
 strand strands[]={
 // len, pin, {x-coords}{y-coords}, initial color
@@ -143,7 +151,7 @@ strand strands[]={
     PANEL(PIN_PANEL_4_STRAND_A, 4),
     PANEL(PIN_PANEL_5_STRAND_A, 5),
     PANEL(PIN_PANEL_6_STRAND_A, 6),
-    PANEL(PIN_PANEL_7_STRAND_A, 7)
+    PANEL_ON2S(PIN_PANEL_7_STRAND_A, 7)
 };
 
 #endif	// GE35_NO_DATA

@@ -140,7 +140,7 @@ void GE35::init() {
     // on the SAME STRAND that reference the same pixel
 
     // sendImageSerial();
-    delay(1000);
+    delay(100);
     sendImagePara();
 
     Serial.println(" -- done");
