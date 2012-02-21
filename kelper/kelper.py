@@ -4,9 +4,9 @@
 
 import time
 import CCore
-kelp = CCore.CCore(pubsub="osc-udp:") # use default bidirectional multicasto
+# kelp = CCore.CCore(pubsub="osc-udp:") # use default bidirectional multicasto
 # kelp = CCore.CCore(pubsub="osc-udp://139.104.88.199:9999")
-# kelp = CCore.CCore(pubsub="osc-udp://198.178.187.122:9999")
+kelp = CCore.CCore(pubsub="osc-udp://192.168.1.69:9999")
 
 def getPixel(mov,frameOffset,x,y,z,options):
     # index into the source movie (which is a one dimensional array)
@@ -100,12 +100,16 @@ def testXYZ_RGBA(frame):
                 r=0
                 g=0
                 b=0
-                if(x==frame):
-                    r=255
+                # if(x==frame):
+                #     r=255
                 if(y==frame):
-                    g=255
-                if(z==frame):
-                    b=255
+                    g=240
+                if(y==(frame+1)):
+                    g=10
+                if(y==frame-1):
+                    g=20
+                # if(z==frame):
+                #     b=255
                 # r=255*x/8
                 offset = (x+(y*8)+(z*8*8))*4
                 out[offset+0]  = chr(r)
@@ -122,6 +126,25 @@ def sendTest1():
         sendFrame(kelp,testXYZ_RGBA(i%8))
         i=i+1
         time.sleep(1.0/fps)
+
+def sendTest2():
+    i=0
+    while(1):
+        sendFrame(kelp, testPattern([color(i%240,0,0)]))
+        i=i+1
+        time.sleep(1.0/fps)
+
+def sendTest3(r,g,b):
+    i=0
+    sendFrame(kelp, testPattern([color(r,g,b)]))
+    while(1):
+        bright(1.0-(i%255)/255.0)
+        i=i+4
+        time.sleep(1.0/fps)
+
+def bright(b):
+    # brightness from 0.0 -> 1.0
+    kelp.send("/bright",[b])
 
 def color(r,g,b,a=200):
     return [chr(r),chr(g),chr(b),chr(a)]
