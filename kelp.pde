@@ -66,7 +66,7 @@ byte myIp[]  = { 192, 168, 69, 69 };
 #define CHIPKIT_TEST
 #ifdef CHIPKIT_TEST
 // IPv4 myIp = { 139, 104, 88, 199 };
-IPv4 myIp = { 198, 178, 187, 122 };	// direct
+IPv4 myIp = { 192, 168, 1, 69 };	// via wifi
 #endif
 
 int  serverPort  = 9999;
@@ -136,7 +136,7 @@ void setup() {
     DUMPVAR(" port: ", serverPort);
     Serial.println("");
 
-    delay(1000);
+    delay(100);
     Serial.println("Initing GE35 --");
     ge35.init();
 
