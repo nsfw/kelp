@@ -125,6 +125,9 @@ UdpServer udpServer(rgbUDPServerCache, sizeof(rgbUDPServerCache), cPending);
 
 #endif
 
+#define RED_BUTTON_PIN 38		// on J9
+#define RED_BUTTON_LIGHT 39		// on J9
+
 void setup() {
     Serial.begin(57600);
     
@@ -135,6 +138,9 @@ void setup() {
     DUMPVAR(".",(int) myIp.rgbIP[3]);
     DUMPVAR(" port: ", serverPort);
     Serial.println("");
+
+	Serial2.begin(9600);
+	Serial2.println("HiPehr!");
 
     delay(100);
     Serial.println("Initing GE35 --");
@@ -161,6 +167,11 @@ void setup() {
     // debug 
     digitalWrite(22, LOW);
     pinMode(22, OUTPUT);
+
+	// Button 
+	pinMode(RED_BUTTON_PIN, INPUT);
+	pinMode(RED_BUTTON_LIGHT, OUTPUT);
+	digitalWrite(RED_BUTTON_LIGHT, HIGH);
 }
 
 byte noOSC=1;
@@ -189,6 +200,36 @@ typedef enum
 
 STATE state = LISTEN;
 
+void writeOSC_i(char *path, int32_t val){
+	OSCMessage msg;
+	msg.beginMessage(path);
+	msg.addArgInt32(val);
+
+	byte *sendData=(uint8_t*)calloc( msg.getMessageSize() ,1 );
+	OSCEncoder encoder;
+	OSCEncoder::encode(&msg,sendData);
+	udpClient.writeDatagram(sendData,msg.getMessageSize());
+	free(sendData);
+}
+
+int buttonState;             // the current reading from the input pin
+int lastButtonState = LOW;   // the previous reading from the input pin
+long lastDebounceTime = 0;
+
+bool pollButton(){
+	int reading = digitalRead(RED_BUTTON_PIN);
+	if (reading != lastButtonState) {
+		lastDebounceTime = millis();
+	} 
+	if (buttonState != reading &&
+		(millis() - lastDebounceTime) > 50) {	// 50ms
+		buttonState = reading;
+		Serial.println(buttonState);
+		writeOSC_i("/button",buttonState);
+	}
+	lastButtonState = reading;
+}
+
 int readOSC(){
 	// returns:
     //  1 if sucessfully processed an OSC packet
@@ -196,7 +237,7 @@ int readOSC(){
     //  0 if nothing actionable happened
 
     static unsigned tStart = 0;
-    unsigned int tWait = 30*1000;		// how long before we drop 'connection'
+    unsigned int tWait = 0*1000;	// connection timeout, 0 = no timeout, 
     int cbRead = 0;
     int count = 0;
     int retVal = 0;
@@ -246,17 +287,14 @@ int readOSC(){
         }
         break;
 
-        // will wait tWait ms for a connection, otherwise will just
-        // go back to "listening"
     case READ:
+        // will wait tWait ms (if non-zero) for a connection,
+        // otherwise will just go back to "listening"
+
         if((cbRead = udpClient.available()) > 0) {
             cbRead = cbRead < sizeof(rgbRead) ? cbRead : sizeof(rgbRead);
             cbRead = udpClient.readDatagram(rgbRead, cbRead);
             tStart = (unsigned) millis();
-
-            // Serial.print("Rx'd ");
-            // Serial.print(cbRead, DEC);
-            // Serial.println(" bytes");
 
             // OSC decode and dispatch
             retVal = 1;
@@ -264,14 +302,14 @@ int readOSC(){
                 retVal = -1;
             else
                 oscDispatch(&msg);
-        } else if( (((unsigned) millis()) - tStart) > tWait ) {
+        } else if( tWait && (((unsigned) millis()) - tStart) > tWait ) {
             state = CLOSE;
         }
         break;
         
         // close our udpClient and go back to listening
     case CLOSE:
-        udpClient.close();
+		udpClient.close();	// close when we get a new connection
         Serial.println("Closed UdpClient");
         Serial.println("");
         state = ISLISTENING;
@@ -335,9 +373,12 @@ void loop(){
 
         noUpdate = 0;
         
+		pollButton();
+
         // output update rate on a pin
         static int tog = 0;
         digitalWrite(22, tog++&0x01);
+
 
     } CATCH {
 

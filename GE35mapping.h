@@ -75,10 +75,10 @@ typedef struct a_strand {
 
 // J4 single row HDI
 
-#define PIN_PANEL_5_STRAND_A 14
-#define PIN_PANEL_5_STRAND_B 15
-#define PIN_PANEL_5_STRAND_C 16
-#define PIN_PANEL_5_STRAND_D 17
+#define PIN_PANEL_5_STRAND_A 31	// was 14-17, but moved to free up serial
+#define PIN_PANEL_5_STRAND_B 33
+#define PIN_PANEL_5_STRAND_C 35
+#define PIN_PANEL_5_STRAND_D 37
 
 #define PIN_PANEL_6_STRAND_A 18	
 #define PIN_PANEL_6_STRAND_B 19
@@ -149,7 +149,7 @@ strand strands[]={
     PANEL(PIN_PANEL_2_STRAND_A, 2), // 
     PANEL(PIN_PANEL_3_STRAND_A, 3),
     PANEL(PIN_PANEL_4_STRAND_A, 4),
-    PANEL(PIN_PANEL_5_STRAND_A, 5),
+    PANEL_ON2S(PIN_PANEL_5_STRAND_A, 5),
     PANEL(PIN_PANEL_6_STRAND_A, 6),
     PANEL_ON2S(PIN_PANEL_7_STRAND_A, 7)
 };
