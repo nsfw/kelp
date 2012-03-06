@@ -10,8 +10,9 @@ import CCore
 kelp = CCore.CCore(pubsub="osc-udp://192.168.1.69:9999")
 emulator = CCore.CCore(pubsub="osc-udp:") # use default bidirectional multicasto
 
-# sendto = [False, emulator]
-sendto = [kelp, False]
+#sendto = [emulator]
+#sendto = [kelp, emulator]
+sendto = [kelp]
 
 def getPixel(mov,frameOffset,x,y,z):
     # index into the source movie (which is a one dimensional array)

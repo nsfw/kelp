@@ -343,17 +343,18 @@ int readOSC(){
 #endif
 
 
+unsigned long lastTerryTime=0;
 void doTerry(){
-	Serial.print("Terry!");
-	Serial2.print("[");
-	for(int i=0; i<10; i++){
-		rgb *d = &img[(4*64)+(i%8)][4];
-		// Serial2.write((byte*) d,3);
-		byte x[]={255,0,255};
-		Serial2.write(x,3);
+	if(millis()-lastTerryTime>(1000/5)){	// 20hz!
+		lastTerryTime = millis();
+		Serial2.print("[");
+		for(int i=0; i<10; i++){
+			rgb *d = &img[(4*8)+(i%8)][4];
+			Serial2.write((byte*) d,3);
 		Serial2.print(",");
+		}
+		Serial2.print("]");
 	}
-	Serial2.print("]");
 }
 
 void loop(){
@@ -362,12 +363,7 @@ void loop(){
         static int loopcnt=0;
         int ret = 0;
 
-		static unsigned int terryCount = 0;
-
-		if((++terryCount%1000) == 0){
-			terryCount=0;
-			doTerry();
-		}
+		doTerry();
 
         while((ret=readOSC())>0){	// process all queued messages
             dirty=1;

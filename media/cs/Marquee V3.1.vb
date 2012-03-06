@@ -164,10 +164,10 @@ Public Sub Main() Implements scriptInterface.IScript.Main
   Options.BackColor.R = 0            ' integer 0 - 255, required when Background <> "void"
   Options.BackColor.G = 0            ' integer 0 - 255, required when Background <> "void"
   Options.BackColor.B = 0            ' integer 0 - 255, required when Background <> "void"
-  Options.Foreground  = "rainbow"    ' "rainbow" | "color"
+  Options.Foreground  = "color"    ' "rainbow" | "color"
   Options.ForeColor.R = 255          ' integer 0 - 255, required only when Foreground = "color"
-  Options.ForeColor.G = 255          ' integer 0 - 255, required only when Foreground = "color"
-  Options.ForeColor.B = 255          ' integer 0 - 255, required only when Foreground = "color"
+  Options.ForeColor.G = 0          ' integer 0 - 255, required only when Foreground = "color"
+  Options.ForeColor.B = 0          ' integer 0 - 255, required only when Foreground = "color"
 
 ' Variables - Declaration & Initialization
 
