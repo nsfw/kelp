@@ -10,8 +10,8 @@ import CCore
 kelp = CCore.CCore(pubsub="osc-udp://192.168.1.69:9999")
 emulator = CCore.CCore(pubsub="osc-udp:") # use default bidirectional multicasto
 
-#sendto = [False, emulator]
-sendto = [kelp, emulator]
+# sendto = [False, emulator]
+sendto = [kelp, False]
 
 def getPixel(mov,frameOffset,x,y,z):
     # index into the source movie (which is a one dimensional array)
@@ -336,11 +336,14 @@ kelp.subscribe("/button",buttonHandler)
 movies=[
     "../media/cs/CUBES.eca",
     "../media/cs/TED ACTIVE RAINBOW TRAIN.eca",
-    "../media/cs/TED RAINBOW ROTO.eca",
+	"../media/cs/RubiCube - PlummersCross 8cube.eca",
+#    "../media/cs/TED RAINBOW ROTO.eca",
     "../media/raw888/Waves_8x8x8_color.raw",
     "../media/raw888/TestXYZ_8x8x8_color.raw",
+#    "../media/cs/TED ACTIVE MARQUEE.eca",
     "../media/raw888/TwoBalls_8x8x8_color.raw",
     "../media/raw888/PlaqueRainbowRotation_8x8x8_color.raw",
+	"../media/cs/explode.eca",
     "../media/cs/drape.eca"]
 
 import select
