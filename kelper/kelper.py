@@ -8,7 +8,7 @@ import colorsys
 import CCore
 
 kelp = CCore.CCore(pubsub="osc-udp://192.168.1.69:9999")
-emulator = CCore.CCore(pubsub="osc-udp:") # use default bidirectional multicasto
+# emulator = CCore.CCore(pubsub="osc-udp:") # use default bidirectional multicasto
 
 #sendto = [emulator]
 #sendto = [kelp, emulator]
@@ -123,7 +123,7 @@ def testMovie():
 
 def testXYZ_RGBA(frame):
     # make 'movie' frame where R=X, G=Y, B=Z
-    out = [chr(0) for x in range(8*8*8*4)]	# full cube rgba output
+    out = [chr(0) for x in range(8*8*8*4)] # full cube rgba output
     # for each vertical layer
     for z in range(0,8):
         for y in range(0,8):
@@ -153,7 +153,7 @@ def testXYZ_RGBA(frame):
 
 def testXYZ_INDEX(frame):
     # light each pixel up once - 512 frames long
-    out = [chr(0) for x in range(8*8*8*4)]	# full cube rgba output
+    out = [chr(0) for x in range(8*8*8*4)]  # full cube rgba output
     # for each panel
     for z in range(0,8):
         for y in range(0,8):
@@ -217,46 +217,46 @@ def rawSendFrame(target, frame):
     # as two packets...
     m = CCore.OSC.OSCMessage()
     m.setAddress("/screenxy");
-    m.append(8)	# image size W, H - 8 by 32
+    m.append(8) # image size W, H - 8 by 32
     m.append(8*4)
-    m.append(0)	# target X,Y
+    m.append(0) # target X,Y
     m.append(0) # y=top half of image
-    m.append(frame[0:(64*4)*4],typehint='b')		# needs blob typehint
+    m.append(frame[0:(64*4)*4],typehint='b')        # needs blob typehint
     target.sender.send(m)
     time.sleep(interMsgDelay)
     # send second half
     m.clear("/screenxy");
-    m.append(8)		# image size - 8 by 32
+    m.append(8)     # image size - 8 by 32
     m.append(8*4)
-    m.append(0)		# x=0
-    m.append(8*4)	# y=bottom half of image
-    m.append(frame[(64*4)*4:],typehint='b')		# needs blob typehint
+    m.append(0)     # x=0
+    m.append(8*4)   # y=bottom half of image
+    m.append(frame[(64*4)*4:],typehint='b')     # needs blob typehint
     target.sender.send(m)
 
 def sendFrame(frame):
-	for i in sendto:
-		if i : rawSendFrame(i,frame)
-			 
+    for i in sendto:
+        if i : rawSendFrame(i,frame)
+             
 def send(path,msg):
-	for i in sendto:
-		if i : i.send(path,msg)
+    for i in sendto:
+        if i : i.send(path,msg)
 
 def bright(bf):
-	send("/bright",[bf])
+    send("/bright",[bf])
 
 def fill(rf,gf,bf):
-	send("/fill",[float(rf),float(gf),float(bf)]);
+    send("/fill",[float(rf),float(gf),float(bf)]);
 
 # apply a function to all pixels
 # def makeFrame(picFx, src):
-# 	out = []
+#   out = []
 #     i = 0
 #     for z in range(0,8):
 #         for y in range(0,8):
 #             for x in range(0,8):
-# 				out.append(picFx,x,y,z,src)
+#               out.append(picFx,x,y,z,src)
 
-#	return ''.join([item for sublist in out for item in sublist])
+#   return ''.join([item for sublist in out for item in sublist])
 
 ###############################################################################
 # Effects fx
@@ -269,41 +269,41 @@ t = 0.0
 # to call each frame.
 
 def const(k):
-	return lambda(t): k
-	
+    return lambda(t): k
+    
 def linfx(k):
-	return lambda(t): k*t
+    return lambda(t): k*t
 
 def hue(t):
-	return np.array(colorsys.hsv_to_rgb(t%1.0,1.0,1.0))
+    return np.array(colorsys.hsv_to_rgb(t%1.0,1.0,1.0))
 
 def modfx(v):
-	return lambda(t): t%v
+    return lambda(t): t%v
 
 def scalergb(rgb,bright):
-	hsv = np.array(colorsys.rgb_to_hsv(rgb[0], rgb[1], rgb[2]))
-	return np.array(colorsys.hsv_to_rgb(hsv[0], hsv[1], bright))
+    hsv = np.array(colorsys.rgb_to_hsv(rgb[0], rgb[1], rgb[2]))
+    return np.array(colorsys.hsv_to_rgb(hsv[0], hsv[1], bright))
 
 def pulse(colorfx, scalefx, ratefx):
-	global t0
-	t0 = time.time()
-	def pulse_update():
-		t = ratefx(time.time() - t0)
-		# f = abs(scalefx(t))
-		f = t
-		color = colorfx(t)
-		scalergb(color,f);
-		nc = np.array(color) * f;
-		# bright(f)
-		fill(nc[0],nc[1],nc[2])
-		time.sleep(0.0001)
-	return pulse_update
+    global t0
+    t0 = time.time()
+    def pulse_update():
+        t = ratefx(time.time() - t0)
+        # f = abs(scalefx(t))
+        f = t
+        color = colorfx(t)
+        scalergb(color,f);
+        nc = np.array(color) * f;
+        # bright(f)
+        fill(nc[0],nc[1],nc[2])
+        time.sleep(0.0001)
+    return pulse_update
 
 def testPulse(colorfx,scalefx,ratefx):
-	tt = pulse(colorfx,scalefx,ratefx)
-	while 1:
-		tt()
-		time.sleep(1.0/fps)
+    tt = pulse(colorfx,scalefx,ratefx)
+    while 1:
+        tt()
+        time.sleep(1.0/fps)
 
 
 ###############################################################################
@@ -314,37 +314,37 @@ buttonPressed = 0
 buttonDownEvent = 0
 
 def buttonHandler(msg):
-	global buttonPressed, buttonDownEvent
-	val = msg.data[0]
-	buttonDownEvent = val and (buttonPressed != val)
-	buttonPressed = val
-	print msg.data 
+    global buttonPressed, buttonDownEvent
+    val = msg.data[0]
+    buttonDownEvent = val and (buttonPressed != val)
+    buttonPressed = val
+    print msg.data 
 
 def buttonDown():
-	# current value
-	global buttonPressed
-	return buttonPressed
+    # current value
+    global buttonPressed
+    return buttonPressed
 
 def buttonDownEvent():
-	global buttonDownEvent
-	# just return once
-	tmp = buttonDownEvent
-	buttonDownEvent = False
-	return tmp
+    global buttonDownEvent
+    # just return once
+    tmp = buttonDownEvent
+    buttonDownEvent = False
+    return tmp
 
-kelp.subscribe("/button",buttonHandler)
+# kelp.subscribe("/button",buttonHandler)
 
 movies=[
     "../media/cs/CUBES.eca",
-    "../media/cs/TED ACTIVE RAINBOW TRAIN.eca",
-	"../media/cs/RubiCube - PlummersCross 8cube.eca",
+#    "../media/cs/TED ACTIVE RAINBOW TRAIN.eca",
+#    "../media/cs/RubiCube - PlummersCross 8cube.eca",
 #    "../media/cs/TED RAINBOW ROTO.eca",
     "../media/raw888/Waves_8x8x8_color.raw",
     "../media/raw888/TestXYZ_8x8x8_color.raw",
 #    "../media/cs/TED ACTIVE MARQUEE.eca",
     "../media/raw888/TwoBalls_8x8x8_color.raw",
     "../media/raw888/PlaqueRainbowRotation_8x8x8_color.raw",
-	"../media/cs/explode.eca",
+    "../media/cs/explode.eca",
     "../media/cs/drape.eca"]
 
 import select
@@ -358,17 +358,20 @@ def getKey():
     if select.select([sys.stdin], [], [], 0) == ([sys.stdin], [], []):
         return sys.stdin.read(1)
     else:
-    	return 0
+        return 0
 
-fps = 30
+fps = 40
 quitFlag = False
 
 defaultXfm = np.array([[-1,0,0],
                        [0,0,1],
                        [0,-1,0]])
 
-def playMovie(fn,fps,xfm=defaultXfm,options={}):
+def playMovie(fn,fps,xfm=defaultXfm,options={},dur=0):
     print "Playing "+fn
+    if dur:
+        print "For",dur,"seconds "
+    playtil = time.time() + dur
     f = open(fn, "r")
     movie = f.read()
     csflag = movie[0:2] == "Ls"
@@ -385,24 +388,24 @@ def playMovie(fn,fps,xfm=defaultXfm,options={}):
         print xfm
         xfmList = transformList(xfm)
     # loop
-    while not quitFlag:
+    while not (quitFlag or (dur and time.time()>playtil)):
         frame = composeFrame(movie, frameNum, base, xfmList, options)
         sendFrame(frame)
         time.sleep(max((1.0/fps)-interMsgDelay, 0))
         frameNum = (frameNum+1)%frames
         quitFlag = getKey() or buttonDown()
         if(quitFlag):
-			break
+            break
     return quitFlag
 
-def playN(n,xfm=defaultXfm,options={}):
+def playN(n,xfm=defaultXfm,options={},dur=0):
     # load up any options or xfms associated with clip
-    playMovie(movies[n],fps,xfm,options)
+    playMovie(movies[n],fps,xfm,options,dur)
 
 def playAll():
     n = 0
     while 1:
-        playN(n)
+        playN(n,dur=30.0)
         n=n+1
         n=n%len(movies)
 
