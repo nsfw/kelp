@@ -1,0 +1,1 @@
+Please refer to chipKITUSBHost\documents for documetation on this library

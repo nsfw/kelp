@@ -1,0 +1,74 @@
+TCPEchoClient 1.0
+
+1.  Start the PCCode IDPEchoServer, once started the command window should look something like:
+
+		UDPEchoServer Version 1.0.4373.27012
+		Digilent, Copyright 2011
+
+		Listening on port: 12000.
+
+2. Edit the UDPEchoClient.pde to have the correct IP address of your PC server. You probably only need to 
+	Change szIPServer as the port number is the default port.
+
+	/***********************************************************/
+	/***********************************************************/
+	/***********************************************************/
+	//
+	//          CHANGE THIS TO YOUR SERVER IP ADDRESS
+	//
+	char * szIPServer = "192.168.1.190";
+	unsigned short portServer = 12000;    
+	//
+	//
+	/***********************************************************/
+	/***********************************************************/
+	/***********************************************************/
+
+3. Build and upload UDPEchoClient.pde. Once uploaded UDPEchoClient automatically starts and after a good 10 seconds we should see
+	something like the following in our UDPEchoServer command window:
+
+		UDPEchoServer Version 1.0.4373.27012
+		Digilent, Copyright 2011
+
+		Listening on port: 12000.
+		Datagram detected with string:
+		*Wrote from udpClient.writeDatagram*
+
+		
+		Listening on port: 12000.
+
+
+4. Hit the serial monitor button in MPIDE (9600 baud) to restart the sketch, after 5-10 seconds your serial monitor should display something like:
+
+		UDPEchoClient 1.0
+		Digilent, Copyright 2011
+
+		Writing out Datagram
+		Waiting to see if a datagram comes back:
+		*Wrote from udpClient.writeDatagram*
+		Done waiting, assuming nothing more is coming
+
+		Closing udpClient, Done with sketch.
+
+5. Your command window should look something like:
+
+		UDPEchoServer Version 1.0.4373.27012
+		Digilent, Copyright 2011
+
+		Listening on port: 12000.
+		Datagram detected with string:
+		*Wrote from udpClient.writeDatagram*
+
+
+		Listening on port: 12000.
+		Datagram detected with string:
+		*Wrote from udpClient.writeDatagram*
+
+
+		Listening on port: 12000.
+
+6. Shutdown your sketch.
+
+7. Shutdown the TCPEchoServer by typing ^C in the command window
+
+

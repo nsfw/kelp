@@ -1,0 +1,63 @@
+DRemoteWOL 3.0 test:
+
+1. 	Compile, upload, and start the serial monitor at 9600 baud and after
+	DRemoteWOL starts the serial monitor window should display
+	the following, allowing for your network parameters.
+
+
+		Start of DRemoteWOL 3.0
+		Current Day and UTC time: Dec 14, 2011  3:39:07
+
+		My IP: 192.168.1.190
+		Gateway IP: 192.168.1.129
+		Subnet mask: 255.255.255.192
+		Dns1 IP: 192.168.1.129
+		Dns2 IP: 24.113.32.29
+
+		Listening on Port: 44200
+
+2. 	Then start the PCCode RemoteWOL.exe with a commandline like, adjusted for your network parameters
+
+		remotewol 192.168.1.190 44200 010203040506
+
+3. 	You should see in the Serial Monitor Window:
+
+		Got a client
+		Current Day and UTC time: Dec 14, 2011  3:44:34
+		Broadcast Request Detected
+		Request to Wake MAC: 01:02:03:04:05:06 from IP: 192.168.1.180:60817.
+		WOL Broadcast Succeeded
+		Request Succeeded
+ 
+		Listening on Port: 44200
+
+4. 	And in the PC command window
+
+		RemoteWol Version 2.0.4364.33691
+		Keith Vogel, Copywrite 2011
+
+		Magic Packet Sent.
+
+5.	Then from the PC ask for the history list
+
+		remotewol 192.168.1.190 44200 -h
+
+6. 	In the Serial Monitor window you should get something like:
+
+		Got a client
+		Current Day and UTC time: Dec 14, 2011  3:47:41
+		History Request Detected
+ 
+		Listening on Port: 44200
+
+7. 	In the PC command window you should get something like:
+
+		RemoteWol Version 2.0.4364.33691
+		Keith Vogel, Copywrite 2011
+
+		Got the broadcast history.
+		Local Time: 12/13/2011 7:44:34 PM, MAC: 010203040506 from IP: 192.168.1.180.
+
+8. 	You can enter commands like from line 2 above as many times as you like and get a history list
+	at any time by entering the command on line 5 above.
+

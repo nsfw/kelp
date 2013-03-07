@@ -1,0 +1,108 @@
+TCPEchoClient 1.0
+
+1.  Start the PCCode TCPEchoServer, once started the command window should look something like:
+
+	TCPEchoServer Version 1.0.4370.23078
+	Digilent, Copyright 2011
+
+	Listening on port 11000
+
+2. Edit the TCPEchoClient.pde to have the correct IP address of your PC server. You probably only need to 
+	Change szIPServer as the port number is the default port.
+
+	/***********************************************************/
+	/***********************************************************/
+	/***********************************************************/
+	//
+	//          CHANGE THIS TO YOUR SERVER IP ADDRESS
+	//
+	char * szIPServer = "192.168.1.190";
+	unsigned short portServer = 11000;    
+	//
+	//
+	/***********************************************************/
+	/***********************************************************/
+	/***********************************************************/
+
+3. Build and upload TCPEchoClient.pde. Once uploaded TCPEchoClient automatically starts and after a good 10 seconds we should see
+	something like the following in our TCPEchoServer command window:
+
+		TCPEchoServer Version 1.0.4373.27258
+		Digilent, Copyright 2011
+
+		Listening on port 11000
+		Detected Client
+		Writing string:
+		*Wrote from tcpClient.writeStream*
+
+		Writing string:
+		*Printed from tcpClient.print*
+		*Printed from tcpClient.println*
+		*Printed from print.print*
+		*Printed from print.println*
+		b
+		*Wrote from print.write*
+		*Wrote from print.write*
+
+		Listening on port 11000
+
+
+4. Hit the serial monitor button in MPIDE (9600 baud) to restart the sketch, after 5-10 seconds your serial monitor should display something like:
+
+	TCPEchoClient 1.0
+	Digilent, Copyright 2011
+
+	Got Connection
+	Bytes Read Back:
+	*Wrote from tcpClient.writeStream*
+	*Printed from tcpClient.print*
+	*Printed from tcpClient.println*
+	*Printed from print.print*
+	*Printed from print.println*
+	b
+	*Wrote from print.write*
+	*Wrote from print.write*
+
+	Closing TcpClient, Done with sketch.
+
+5. Your command window should look something like:
+
+		TCPEchoServer Version 1.0.4373.27258
+		Digilent, Copyright 2011
+
+		Listening on port 11000
+		Detected Client
+		Writing string:
+		*Wrote from tcpClient.writeStream*
+
+		Writing string:
+		*Printed from tcpClient.print*
+		*Printed from tcpClient.println*
+		*Printed from print.print*
+		*Printed from print.println*
+		b
+		*Wrote from print.write*
+		*Wrote from print.write*
+
+		Listening on port 11000
+		Detected Client
+		Writing string:
+		*Wrote from tcpClient.writeStream*
+
+		Writing string:
+		*Printed from tcpClient.print*
+		*Printed from tcpClient.println*
+
+		Writing string:
+		*Printed from print.print*
+		*Printed from print.println*
+		b
+		*Wrote from print.write*
+		*Wrote from print.write*
+
+		Listening on port 11000
+
+6. Shutdown your sketch.
+7. Shutdown the TCPEchoServer by typing ^C in the command window
+
+
