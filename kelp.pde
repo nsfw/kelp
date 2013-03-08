@@ -57,13 +57,13 @@ byte myMac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
 byte myIp[]  = { 198, 178, 187, 122 };
 #endif
 
-// #define RVIP
+#define RVIP
 #ifdef RVIP
 byte myMac[] = { 0xBE, 0xEF, 0xBE, 0xEF, 0xBE, 0xEF };
-byte myIp[]  = { 192, 168, 69, 69 };
+IPv4 myIp = { 192, 168, 1, 99 };
 #endif
 
-#define CHIPKIT_TEST
+// #define CHIPKIT_TEST
 #ifdef CHIPKIT_TEST
 // IPv4 myIp = { 139, 104, 88, 199 };
 IPv4 myIp = { 192, 168, 1, 69 };	// via wifi

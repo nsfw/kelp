@@ -80,17 +80,29 @@ typedef struct a_strand {
 #define PIN_PANEL_5_STRAND_C 35
 #define PIN_PANEL_5_STRAND_D 37
 
+#if 0
 #define PIN_PANEL_6_STRAND_A 18	
 #define PIN_PANEL_6_STRAND_B 19
 #define PIN_PANEL_6_STRAND_C 20
 #define PIN_PANEL_6_STRAND_D 21
-
 // J9 big dual HDI on right 
-
 #define PIN_PANEL_7_STRAND_A 30
 #define PIN_PANEL_7_STRAND_B 32
 #define PIN_PANEL_7_STRAND_C 34
 #define PIN_PANEL_7_STRAND_D 36
+
+#else
+// SUPER HACK TO MAKE ALL J8 do *something*
+#define PIN_PANEL_6_STRAND_A 30
+#define PIN_PANEL_6_STRAND_B 31
+#define PIN_PANEL_6_STRAND_C 32
+#define PIN_PANEL_6_STRAND_D 33
+// J9 big dual HDI on right 
+#define PIN_PANEL_7_STRAND_A 34
+#define PIN_PANEL_7_STRAND_B 35
+#define PIN_PANEL_7_STRAND_C 36
+#define PIN_PANEL_7_STRAND_D 37
+#endif
 
 #ifndef GE35_NO_DATA
 
