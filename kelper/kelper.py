@@ -8,11 +8,12 @@ import colorsys
 import CCore
 
 kelp = CCore.CCore(pubsub="osc-udp://192.168.1.69:9999")
+side = CCore.CCore(pubsub="osc-udp://192.168.1.99:9999")
 # emulator = CCore.CCore(pubsub="osc-udp:") # use default bidirectional multicasto
 
 #sendto = [emulator]
 #sendto = [kelp, emulator]
-sendto = [kelp]
+sendto = [kelp,side]
 
 def getPixel(mov,frameOffset,x,y,z):
     # index into the source movie (which is a one dimensional array)
@@ -410,3 +411,4 @@ def playAll():
         n=n%len(movies)
 
 
+playAll()
