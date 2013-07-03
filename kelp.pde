@@ -66,7 +66,8 @@ byte myIp[]  = { 192, 168, 69, 69 };
 #define CHIPKIT_TEST
 #ifdef CHIPKIT_TEST
 // IPv4 myIp = { 139, 104, 88, 199 };
-IPv4 myIp = { 192, 168, 1, 69 };	// via wifi
+//IPv4 myIp = { 192, 168, 1, 69 };	// kelp
+IPv4 myIp = { 192, 168, 1, 99 };	// side 
 #endif
 
 int  serverPort  = 9999;
@@ -129,7 +130,7 @@ UdpServer udpServer(rgbUDPServerCache, sizeof(rgbUDPServerCache), cPending);
 #define RED_BUTTON_LIGHT 39		// on J9
 
 void setup() {
-    Serial.begin(57600);
+     Serial.begin(115200);
     
     Serial.println("Device Start -- ");
     DUMPVAR("IP: ",(int) myIp.rgbIP[0]);
