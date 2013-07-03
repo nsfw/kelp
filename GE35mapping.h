@@ -142,8 +142,8 @@ strand strands[]={ // top down
     ROW_39(PIN_PANEL_6_STRAND_A, 6),
     ROW_39(PIN_PANEL_7_STRAND_A, 7),
     // rows on slideout 
-    ROWS_4_of_14(PIN_PANEL_0_STRAND_B,7,-1),// start at row 7 and go up
-//    ROWS_4_of_14(PIN_PANEL_1_STRAND_B,3,-1) // start at row 3 and go up
+    // ROWS_4_of_14(PIN_PANEL_0_STRAND_B,7,-1),// start at row 7 and go up
+    // ROWS_4_of_14(PIN_PANEL_1_STRAND_B,3,-1) // start at row 3 and go up
 };
 
 #endif  // GE35_NO_DATA
