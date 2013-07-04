@@ -10,8 +10,8 @@ import CCore
 
 kelp = CCore.CCore(pubsub="osc-udp://192.168.1.69:9999")
 side = CCore.CCore(pubsub="osc-udp://192.168.1.99:9999")
-emulator = CCore.CCore(pubsub="osc-udp:") # use default bidirectional multicasto
-oocp = emulator	# OOCP talks on default multicast too
+# emulator = CCore.CCore(pubsub="osc-udp:") # use default bidirectional multicasto
+# oocp = emulator	# OOCP talks on default multicast too
 
 #sendto = [emulator]
 #sendto = [kelp, emulator]
@@ -316,7 +316,9 @@ def pulse(r,g,b, hold, decay, period):
         else:
             # fraction of decay time
             left = 1 - max((t-hold)/decay,0)
-            send("/fill",[r*left, g*left*left, b*left])
+            # send("/fill",[r*left, g*left*left, b*left])
+            bright(left)
+            bright
     return pulseFx
 
 def testPulse(r,g,b, hold, decay, period):
@@ -329,7 +331,7 @@ def testPulse(r,g,b, hold, decay, period):
 # testPulse(1.0, 0.0, 0.0, 0.2, 0.8, 1.5)
 
 def colorPulse(r,g,b):
-    return pulse(r,g,b, 0.2, 0.8, 1.5)
+    return pulse(r,g,b, 0.2, 3.0, 4.0)
 
 # Best Buy Function
 
@@ -362,8 +364,8 @@ def buttonDownEvent():
     buttonDownEvent = False
     return tmp
 
-if(kelp):
-    kelp.subscribe("/button",buttonHandler)
+# if(kelp):
+#     kelp.subscribe("/button",buttonHandler)
 
 # Support the OOCP
 def oocpHandler(msg):
@@ -457,6 +459,7 @@ def playMovie(fn,fps,xfm=defaultXfm,options={},dur=0):
 def playN(n,xfm=defaultXfm,options={},dur=0):
     instance = movies[n]
     # load up any options or xfms associated with clip
+    bright(1.0)
     if type(instance)==type(""):
         # handle a 'movie'
         playMovie(instance,fps,xfm,options,dur)
