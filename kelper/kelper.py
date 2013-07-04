@@ -8,11 +8,12 @@ import colorsys
 import CCore
 
 kelp = CCore.CCore(pubsub="osc-udp://192.168.1.69:9999")
-# emulator = CCore.CCore(pubsub="osc-udp:") # use default bidirectional multicasto
+side = CCore.CCore(pubsub="osc-udp://192.168.1.99:9999")
+emulator = CCore.CCore(pubsub="osc-udp:") # use default bidirectional multicasto
 
-#sendto = [emulator]
+sendto = [emulator]
 #sendto = [kelp, emulator]
-sendto = [kelp]
+#sendto = [kelp,side]
 
 def getPixel(mov,frameOffset,x,y,z):
     # index into the source movie (which is a one dimensional array)
@@ -284,26 +285,53 @@ def scalergb(rgb,bright):
     hsv = np.array(colorsys.rgb_to_hsv(rgb[0], rgb[1], rgb[2]))
     return np.array(colorsys.hsv_to_rgb(hsv[0], hsv[1], bright))
 
-def pulse(colorfx, scalefx, ratefx):
-    global t0
-    t0 = time.time()
-    def pulse_update():
-        t = ratefx(time.time() - t0)
+def huePulse(colorfx, scalefx, ratefx, dur):
+    def huePulse_update(t):
+        t = ratefx(t % dur)
         # f = abs(scalefx(t))
         f = t
         color = colorfx(t)
-        scalergb(color,f);
+        scalergb(color,f );
         nc = np.array(color) * f;
         # bright(f)
         fill(nc[0],nc[1],nc[2])
         time.sleep(0.0001)
-    return pulse_update
+    return huePulse_update
 
-def testPulse(colorfx,scalefx,ratefx):
-    tt = pulse(colorfx,scalefx,ratefx)
+def testHuePulse(colorfx,scalefx,ratefx, dur):
+    tt = pulse(colorfx,scalefx,ratefx,dur)
     while 1:
-        tt()
+        tt(time.time())
         time.sleep(1.0/fps)
+
+
+def pulse(r,g,b, hold, decay, period):
+    def pulseFx(t):
+        t = t % period
+        # start bright
+        if(t<hold):
+            send("/fill", [r, g, b])
+        else:
+            # fraction of decay time
+            left = 1 - max((t-hold)/decay,0)
+            send("/fill",[r*left, g*left*left, b*left])
+    return pulseFx
+
+def testPulse(r,g,b, hold, decay, period):
+    tt = pulse(r,g,b, hold,decay, period)
+    start = time.time()
+    while 1:
+        tt((time.time()-start))
+        time.sleep(1.0/fps)
+
+# testPulse(1.0, 0.0, 0.0, 0.2, 0.8, 1.5)
+
+def redPulse():
+    return pulse(1.0,0.0,0.0, 0.2, 0.8, 1.5)
+
+# Best Buy Function
+
+# Color until Interrupted
 
 
 ###############################################################################
@@ -336,6 +364,8 @@ def buttonDownEvent():
 
 movies=[
     "../media/cs/CUBES.eca",
+    huePulse(hue,lambda x:x,lambda x:0.3*x,8),
+    redPulse(),
 #    "../media/cs/TED ACTIVE RAINBOW TRAIN.eca",
 #    "../media/cs/RubiCube - PlummersCross 8cube.eca",
 #    "../media/cs/TED RAINBOW ROTO.eca",
@@ -366,6 +396,23 @@ quitFlag = False
 defaultXfm = np.array([[-1,0,0],
                        [0,0,1],
                        [0,-1,0]])
+
+def playFx(fx,fps,xfm=defaultXfm,options={},dur=0):
+    print "Playing "+fx.__name__
+    start = time.time()
+    playtil = start + dur
+    xfmList = None
+    if xfm != None:
+        xfmList = transformList(xfm)
+    quitFlag=False
+    while not (quitFlag or (dur and time.time()>playtil)):
+        fx(time.time()-start)   # start at t=0
+        time.sleep(max((1.0/fps)-interMsgDelay, 0))
+        quitFlag = getKey() or buttonDown()
+        if(quitFlag):
+            break
+    return quitFlag
+
 
 def playMovie(fn,fps,xfm=defaultXfm,options={},dur=0):
     print "Playing "+fn
@@ -399,8 +446,16 @@ def playMovie(fn,fps,xfm=defaultXfm,options={},dur=0):
     return quitFlag
 
 def playN(n,xfm=defaultXfm,options={},dur=0):
+    instance = movies[n]
     # load up any options or xfms associated with clip
-    playMovie(movies[n],fps,xfm,options,dur)
+    if type(instance)==type(""):
+        # handle a 'movie'
+        playMovie(instance,fps,xfm,options,dur)
+    else:
+        # assume it's a function that computes a new frame
+        print instance
+        playFx(instance, fps, xfm, options, dur)
+        
 
 def playAll():
     n = 0
@@ -410,3 +465,4 @@ def playAll():
         n=n%len(movies)
 
 
+playAll()
