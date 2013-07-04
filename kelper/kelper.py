@@ -9,7 +9,9 @@ import CCore
 
 kelp = CCore.CCore(pubsub="osc-udp://192.168.1.69:9999")
 side = CCore.CCore(pubsub="osc-udp://192.168.1.99:9999")
+
 emulator = CCore.CCore(pubsub="osc-udp:") # use default bidirectional multicasto
+oocp = emulator	# OOCP talks on default multicast too
 
 sendto = [emulator]
 #sendto = [kelp, emulator]
@@ -326,8 +328,8 @@ def testPulse(r,g,b, hold, decay, period):
 
 # testPulse(1.0, 0.0, 0.0, 0.2, 0.8, 1.5)
 
-def redPulse():
-    return pulse(1.0,0.0,0.0, 0.2, 0.8, 1.5)
+def colorPulse(r,g,b):
+    return pulse(r,g,b, 0.2, 0.8, 1.5)
 
 # Best Buy Function
 
@@ -362,17 +364,23 @@ def buttonDownEvent():
 
 # kelp.subscribe("/button",buttonHandler)
 
+# Support the OOCP
+def oocpHandler(msg):
+    pass
+
 movies=[
     "../media/cs/CUBES.eca",
     huePulse(hue,lambda x:x,lambda x:0.3*x,8),
-    redPulse(),
+    colorPulse(1.0, 0.0, 0.0),
 #    "../media/cs/TED ACTIVE RAINBOW TRAIN.eca",
 #    "../media/cs/RubiCube - PlummersCross 8cube.eca",
 #    "../media/cs/TED RAINBOW ROTO.eca",
     "../media/raw888/Waves_8x8x8_color.raw",
+    colorPulse(0.0, 0.0, 1.0),
     "../media/raw888/TestXYZ_8x8x8_color.raw",
 #    "../media/cs/TED ACTIVE MARQUEE.eca",
     "../media/raw888/TwoBalls_8x8x8_color.raw",
+    colorPulse(0.0, 1.0, 0.0),
     "../media/raw888/PlaqueRainbowRotation_8x8x8_color.raw",
     "../media/cs/explode.eca",
     "../media/cs/drape.eca"]
