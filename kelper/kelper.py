@@ -362,7 +362,8 @@ def buttonDownEvent():
     buttonDownEvent = False
     return tmp
 
-# kelp.subscribe("/button",buttonHandler)
+if(kelp):
+    kelp.subscribe("/button",buttonHandler)
 
 # Support the OOCP
 def oocpHandler(msg):
