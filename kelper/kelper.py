@@ -1,3 +1,4 @@
+#!/usr/local/bin/python
 ###############################################################################
 # kelper -- play back files on the kelp!
 ###############################################################################
@@ -9,13 +10,12 @@ import CCore
 
 kelp = CCore.CCore(pubsub="osc-udp://192.168.1.69:9999")
 side = CCore.CCore(pubsub="osc-udp://192.168.1.99:9999")
-
 emulator = CCore.CCore(pubsub="osc-udp:") # use default bidirectional multicasto
 oocp = emulator	# OOCP talks on default multicast too
 
-sendto = [emulator]
+#sendto = [emulator]
 #sendto = [kelp, emulator]
-#sendto = [kelp,side]
+sendto = [kelp,side]
 
 def getPixel(mov,frameOffset,x,y,z):
     # index into the source movie (which is a one dimensional array)
@@ -472,6 +472,5 @@ def playAll():
         playN(n,dur=30.0)
         n=n+1
         n=n%len(movies)
-
 
 playAll()
