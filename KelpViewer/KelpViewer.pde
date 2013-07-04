@@ -63,6 +63,20 @@ void draw() {
   }
 }
 
+void fill(OscMessage oscmsg){
+    int r = (int)(oscmsg.get(0).floatValue()*255);
+    int g = (int)(oscmsg.get(1).floatValue()*255);
+    int b = (int)(oscmsg.get(2).floatValue()*255);
+    int a = 255;
+         
+    for(int y=0; y<(cubeSize*cubeSize); y++){
+        for(int x=0; x<cubeSize; x++){
+            img.pixels[x+y*cubeSize] = color(r, g, b, a);
+            // println("x="+x+" y="+y+" p="+p+" color="+r+","+g+","+b);
+        }
+    }
+}
+
 void copyImageXY(OscMessage oscmsg){
     // Treats the cube as a tall image 
     int w = oscmsg.get(0).intValue();
@@ -93,7 +107,12 @@ void oscEvent(OscMessage oscmsg) {
   // print(" addrpattern: "+oscmsg.addrPattern());
   // println(" typetag: "+oscmsg.typetag());
 
-  if(oscmsg.checkAddrPattern("/screenxy")) copyImageXY(oscmsg);
-  else println("unknown OSC message");
+  if(oscmsg.checkAddrPattern("/screenxy")){
+      copyImageXY(oscmsg);
+  } else if(oscmsg.checkAddrPattern("/fill")) {
+      fill(oscmsg);
+  } else {
+      println("unknown OSC message!");
+  }
 }
 

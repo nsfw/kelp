@@ -4,7 +4,4 @@ CrossPack
 
 http://www.obdev.at/products/crosspack/index.html
 
-Currently need to make ../bin to compile
-and ../bin/hat
-
 
