@@ -472,7 +472,7 @@ def playN(n,xfm=defaultXfm,options={},dur=0):
 def playAll():
     n = 0
     while 1:
-        playN(n,dur=30.0)
+        playN(n,dur=90.0)
         n=n+1
         n=n%len(movies)
 
