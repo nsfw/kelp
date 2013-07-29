@@ -112,7 +112,7 @@ void oscEvent(OscMessage oscmsg) {
   } else if(oscmsg.checkAddrPattern("/fill")) {
       fill(oscmsg);
   } else {
-      println("unknown OSC message!");
+      println("unknown OSC message: "+oscmsg.addrPattern());
   }
 }
 
