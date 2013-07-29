@@ -10,12 +10,22 @@ import CCore
 
 kelp = CCore.CCore(pubsub="osc-udp://192.168.1.69:9999")
 side = CCore.CCore(pubsub="osc-udp://192.168.1.99:9999")
-# emulator = CCore.CCore(pubsub="osc-udp:") # use default bidirectional multicasto
-# oocp = emulator	# OOCP talks on default multicast too
+emulator = CCore.CCore(pubsub="osc-udp:") # use default bidirectional multicasto
+oocp = emulator	# OOCP talks on default multicast too
 
-#sendto = [emulator]
-#sendto = [kelp, emulator]
-sendto = [kelp,side]
+testing = False
+
+if not testing:
+    normalOperation = [kelp, side]
+    insideOnly = [kelp]
+    outsideOnly = [side]
+else:
+    print "Sending to EMULATOR"
+    normalOperation = [emulator]
+    insideOnly = [emulator]
+    outsideOnly = []
+
+sendto = normalOperation
 
 def getPixel(mov,frameOffset,x,y,z):
     # index into the source movie (which is a one dimensional array)
@@ -306,7 +316,6 @@ def testHuePulse(colorfx,scalefx,ratefx, dur):
         tt(time.time())
         time.sleep(1.0/fps)
 
-
 def pulse(r,g,b, hold, decay, period):
     def pulseFx(t):
         t = t % period
@@ -333,10 +342,21 @@ def testPulse(r,g,b, hold, decay, period):
 def colorPulse(r,g,b):
     return pulse(r,g,b, 0.2, 3.0, 4.0)
 
-# Best Buy Function
+def solid(r,g,b):
+    def solidFx(t):
+        send("/fill", [r, g, b])
+    return solidFx
 
-# Color until Interrupted
-
+def outsideOff ():
+    # currently - inside cabin lights are on the same address as outside
+    global sendTo
+    sendTo = outsideOnly
+    solid(0.0, 0.0, 0.0)()	# send black to just the outside
+    sendTo = insideOnly     # but behave normally 'inside' (kelp)
+    
+def outsideOn():
+    global sendTo
+    sendTo = normalOperation
 
 ###############################################################################
 # Main
@@ -367,26 +387,37 @@ def buttonDownEvent():
 # if(kelp):
 #     kelp.subscribe("/button",buttonHandler)
 
+def oscPlayEffect(name,dur=30):
+    global quitFlag, jumpTo, jumpToDur
+    quitFlag = True
+    jumpTo = name
+    jumpToDur = dur
+
+oocpHooks = {
+    "red-pulse":(lambda : oscPlayEffect("red-pulse",0)),
+    "white":(lambda: oscPlayEffect("white", 0)),
+    "black":(lambda: oscPlayEffect("black", 0)),
+    "amber":(lambda: oscPlayEffect("amber", 0)),
+    "resume":(lambda: oscPlayEffect("", 0)),
+}
+
 # Support the OOCP
 def oocpHandler(msg):
-    pass
+    # ignore our own kelper messages
+    print msg.path
+    print msg.data
+    handler = oocpHooks.get(msg.data[0], False)
+    if handler:
+        print handler
+        handler()
 
-movies=[
-    "../media/cs/CUBES.eca",
-    huePulse(hue,lambda x:x,lambda x:0.3*x,8),
-    colorPulse(1.0, 0.0, 0.0),
-#    "../media/cs/TED ACTIVE RAINBOW TRAIN.eca",
-#    "../media/cs/RubiCube - PlummersCross 8cube.eca",
-#    "../media/cs/TED RAINBOW ROTO.eca",
-    "../media/raw888/Waves_8x8x8_color.raw",
-    colorPulse(0.0, 0.0, 1.0),
-    "../media/raw888/TestXYZ_8x8x8_color.raw",
-#    "../media/cs/TED ACTIVE MARQUEE.eca",
-    "../media/raw888/TwoBalls_8x8x8_color.raw",
-    colorPulse(0.0, 1.0, 0.0),
-    "../media/raw888/PlaqueRainbowRotation_8x8x8_color.raw",
-    "../media/cs/explode.eca",
-    "../media/cs/drape.eca"]
+def dispatch(msg):
+    if msg.path in ["/lights"]:
+        if msg.path == "/lights":
+            oocpHandler(msg)
+
+if oocp:
+    oocp.subscribe("*", dispatch)
 
 import select
 import sys
@@ -403,12 +434,15 @@ def getKey():
 
 fps = 40
 quitFlag = False
+jumpTo = False
+jumpToDur = 30
 
 defaultXfm = np.array([[-1,0,0],
                        [0,0,1],
                        [0,-1,0]])
 
 def playFx(fx,fps,xfm=defaultXfm,options={},dur=0):
+    global quitFlag
     print "Playing "+fx.__name__
     start = time.time()
     playtil = start + dur
@@ -419,13 +453,14 @@ def playFx(fx,fps,xfm=defaultXfm,options={},dur=0):
     while not (quitFlag or (dur and time.time()>playtil)):
         fx(time.time()-start)   # start at t=0
         time.sleep(max((1.0/fps)-interMsgDelay, 0))
-        quitFlag = getKey() or buttonDown()
+        if getKey() or buttonDown():
+            quitFlag = True
         if(quitFlag):
             break
     return quitFlag
 
-
 def playMovie(fn,fps,xfm=defaultXfm,options={},dur=0):
+    global quitFlag
     print "Playing "+fn
     if dur:
         print "For",dur,"seconds "
@@ -451,13 +486,15 @@ def playMovie(fn,fps,xfm=defaultXfm,options={},dur=0):
         sendFrame(frame)
         time.sleep(max((1.0/fps)-interMsgDelay, 0))
         frameNum = (frameNum+1)%frames
-        quitFlag = getKey() or buttonDown()
+        if getKey() or buttonDown():
+            quitFlag = True
         if(quitFlag):
             break
     return quitFlag
 
-def playN(n,xfm=defaultXfm,options={},dur=0):
-    instance = movies[n]
+def playEffect(effect, xfm=defaultXfm, options={}, dur=0):
+    instance = effect["movie"]
+    print "Playing "+ effect.get("name", "un-named")
     # load up any options or xfms associated with clip
     bright(1.0)
     if type(instance)==type(""):
@@ -467,13 +504,53 @@ def playN(n,xfm=defaultXfm,options={},dur=0):
         # assume it's a function that computes a new frame
         print instance
         playFx(instance, fps, xfm, options, dur)
-        
 
-def playAll():
+# Effects by name 
+
+effects=[
+    {"name": "hues",        "movie":huePulse(hue,lambda x:x,lambda x:0.3*x,8)}, 
+    {"name": "red-pulse",   "movie":colorPulse(1.0, 0.0, 0.0)},
+    {"name": "waves",       "movie":"../media/raw888/Waves_8x8x8_color.raw"},
+    {"name": "blue-pulse",  "movie":colorPulse(0.0, 0.0, 1.0)},
+    {"name": "test-pattern","movie":"../media/raw888/TestXYZ_8x8x8_color.raw"},
+    {"name": "two-balls",   "movie":"../media/raw888/TwoBalls_8x8x8_color.raw"},
+    {"name": "green-pulse", "movie":colorPulse(0.0, 1.0, 0.0)},
+    {"name": "rainbow",     "movie":"../media/raw888/PlaqueRainbowRotation_8x8x8_color.raw"},
+    {"name": "explode",     "movie":"../media/cs/explode.eca"},
+    {"name": "drape",       "movie":"../media/cs/drape.eca"},
+    # solid colors 
+    {"name": "white", "movie":solid(1.0, 1.0, 1.0), "auto":False},
+    {"name": "black", "movie":solid(0.0, 0.0, 0.0), "auto":False},
+    {"name": "amber", "movie":solid(0.8, 0.8, 0.0), "auto":False}
+]
+
+def findEffect(name):
+    for x in effects:
+        if x["name"] == name:
+            return x
+    return False
+
+def playAllEffects():
+    # should add a selector for default effects
     n = 0
     while 1:
-        playN(n,dur=30.0)
-        n=n+1
-        n=n%len(movies)
+        for x in effects:
+            if x.get("auto", True):
+                processJumpTo()
+                playEffect(x,dur=30.0)
 
-playAll()
+def playEffectName(name, duration=0):
+    effect = findEffect(name)
+    if effect:
+        playEffect(effect, dur=duration)	# 0=forever
+
+def processJumpTo():
+    # if flags have been set, the jump to that effect NOW, and clear jumpFlag
+    global jumpTo, jumpToDur
+    if jumpTo:
+        effectName = jumpTo
+        jumpTo = False
+        playEffectName(effectName, jumpToDur)
+
+if __name__ == "__main__":
+    playAllEffects()
