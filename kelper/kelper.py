@@ -218,6 +218,7 @@ def sendTestIndex():
 
 def bright(b):
     # brightness from 0.0 -> 1.0
+    # NOTE: THIS REALLY GLITCHES! YOU NEVER WANT TO USE IT!
     send("/bright",[float(b)])
 
 def color(r,g,b,a=200):
@@ -257,9 +258,6 @@ def send(path,msg):
     for i in sendto:
         if i : i.send(path,msg)
 
-def bright(bf):
-    send("/bright",[bf])
-
 def fill(rf,gf,bf):
     send("/fill",[float(rf),float(gf),float(bf)]);
 
@@ -296,6 +294,16 @@ def hue(t):
 def modfx(v):
     return lambda(t): t%v
 
+def sequenceFx(period,colors):
+    """ return things (i.e. colors) in sequence over PERIOD seconds """
+    def cfx (t):
+        t = t % period
+        dur = float(period)/len(colors)
+        index = int(t/dur)
+        return colors[index]
+    print "sequence %s - %s" % (period, colors)
+    return cfx
+
 def scalergb(rgb,bright):
     hsv = np.array(colorsys.rgb_to_hsv(rgb[0], rgb[1], rgb[2]))
     return np.array(colorsys.hsv_to_rgb(hsv[0], hsv[1], bright))
@@ -328,10 +336,28 @@ def pulse(r,g,b, hold, decay, period):
         else:
             # fraction of decay time
             left = 1.0 - min((t-hold)/decay,1.0)
-            # send("/fill",[r*left, g*left*left, b*left])
+            send("/fill",[r*left, g*left*left, b*left])
             # print left
-            bright(left)
+            # bright(left)
     return pulseFx
+
+# use colorSequenceFx for Color
+# bigMachines : send("/lights",["sequence",4.0, 27,47,230, 227, 187, 0])
+def pulseSequence(hold, decay, period):
+    def pulseSeqFx(t):
+        # start bright
+        color = colorSequenceFx(t)
+        t = t % period
+        if(t<hold):
+            send("/fill", color)
+            # bright(1.0)
+        else:
+            # fraction of decay time
+            left = 1.0 - min((t-hold)/decay,1.0)
+            send("/fill",[color[0]*left, color[1]*left*left, color[2]*left])
+            # print left
+            # bright(left)
+    return pulseSeqFx
 
 def testPulse(r,g,b, hold, decay, period):
     tt = pulse(r,g,b, hold,decay, period)
@@ -387,21 +413,40 @@ def buttonDownEvent():
     buttonDownEvent = False
     return tmp
 
-# if(kelp):
-#     kelp.subscribe("/button",buttonHandler)
-
 def oscPlayEffect(name,dur=30):
     global quitFlag, jumpTo, jumpToDur
     quitFlag = True
     jumpTo = name
     jumpToDur = dur
 
+colorSequenceFx = False
+def playSequenceHandler (msg):
+    # setup the color sequence effect
+    # Expects payload of: "sequence", "period", r0, g0, b0, r1, g1, b1, etc..
+    #
+    global colorSequenceFx
+    period = msg.data[1]
+    num = len(msg.data)-2
+    if num%3 != 0:
+        print "SEQUENCE expects PERIOD, [R,G,B] 0,255 per componant ..."
+        return 
+    i = 2
+    colors = []
+    while num > 0:
+        colors.append([msg.data[i+0]/255.0, msg.data[i+1]/255.0, msg.data[i+2]/255.0])
+        num -= 3
+        i += 3
+    colorSequenceFx = sequenceFx(period, colors)
+    oscPlayEffect("sequence", 0)
+
+# Handlers expect msg packets
 oocpHooks = {
-    "red-pulse":(lambda : oscPlayEffect("red-pulse",0)),
-    "white":(lambda: oscPlayEffect("white", 0)),
-    "black":(lambda: oscPlayEffect("black", 0)),
-    "amber":(lambda: oscPlayEffect("amber", 0)),
-    "resume":(lambda: oscPlayEffect("", 0)),
+    "red-pulse":(lambda ignore: oscPlayEffect("red-pulse",0)),
+    "white":(lambda ignore: oscPlayEffect("white", 0)),
+    "black":(lambda ignore: oscPlayEffect("black", 0)),
+    "amber":(lambda ignore: oscPlayEffect("amber", 0)),
+    "resume":(lambda ignore: oscPlayEffect("", 0)),
+    "sequence":playSequenceHandler
 }
 
 # Support the OOCP
@@ -411,9 +456,10 @@ def oocpHandler(msg):
     print msg.data
     effectName = msg.data[0]
     handler = oocpHooks.get(effectName, False)
-    if handler and currentEffect and currentEffect["name"] != effectName :
+    # if handler and currentEffect and currentEffect["name"] != effectName :
+    if handler:
         print handler
-        handler()
+        handler(msg)
     else:
         print "Skipping - already in %s mode" % (effectName)
 
@@ -534,7 +580,9 @@ effects=[
     # solid colors 
     {"name": "white", "movie":solid(1.0, 1.0, 1.0), "auto":False},
     {"name": "black", "movie":solid(0.0, 0.0, 0.0), "auto":False},
-    {"name": "amber", "movie":solid(0.8, 0.8, 0.0), "auto":False}
+    {"name": "amber", "movie":solid(0.8, 0.8, 0.0), "auto":False},
+    # sequence of colors - hold, decay, period
+    {"name": "sequence", "movie":pulseSequence(0.1, 2.0, 2.0), "auto":False}
 ]
 
 def findEffect(name):
