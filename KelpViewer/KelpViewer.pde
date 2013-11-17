@@ -9,8 +9,9 @@ float boxSize = 40;
 float margin = boxSize*2;
 float depth = 8*boxSize/2;
 color boxFill;
-
+color black;
 int cubeSize=8;
+float bright=1.0;
 
 // color[][] img = new color[cubeSize][cubeSize*cubeSize];
 
@@ -20,7 +21,7 @@ OscP5 oscP5;
 void setup() {
   size(640, 360, P3D);
   noStroke();
-
+  black = color(0,0,0);
   // listen for OSC on Communicore default 239.192.192.192:9192
   oscP5 = new OscP5(this,"239.192.192.192",9192);
 }
@@ -48,6 +49,7 @@ void draw() {
                 // Base fill color on counter values, abs function 
                 // ensures values stay within legal range
                 boxFill = img.pixels[x+(y*cubeSize)+(z*cubeSize*cubeSize)];
+                boxFill = lerpColor(boxFill, black, (1.0 - bright));
                 // boxFill = color(x*255/cubeSize, y*255/cubeSize, z*255/cubeSize, 200);
                 pushMatrix();
                 translate(-bound + (x*boxSize),
@@ -77,6 +79,10 @@ void fill(OscMessage oscmsg){
     }
 }
 
+void bright(OscMessage oscmsg){
+    bright = oscmsg.get(0).floatValue();
+}
+
 void copyImageXY(OscMessage oscmsg){
     // Treats the cube as a tall image 
     int w = oscmsg.get(0).intValue();
@@ -84,6 +90,9 @@ void copyImageXY(OscMessage oscmsg){
     int baseX = oscmsg.get(2).intValue();
     int baseY = oscmsg.get(3).intValue();
     byte[] data = oscmsg.get(4).bytesValue();
+
+    // brightness is precomputed for movies
+    bright = 1.0;
 
     for(int sy=0; sy<h; sy++){
         for(int sx=0; sx<w; sx++){
@@ -111,6 +120,8 @@ void oscEvent(OscMessage oscmsg) {
       copyImageXY(oscmsg);
   } else if(oscmsg.checkAddrPattern("/fill")) {
       fill(oscmsg);
+  } else if(oscmsg.checkAddrPattern("/bright")) {
+      bright(oscmsg);
   } else {
       println("unknown OSC message: "+oscmsg.addrPattern());
   }
