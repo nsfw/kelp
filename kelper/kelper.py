@@ -13,7 +13,10 @@ side = CCore.CCore(pubsub="osc-udp://192.168.1.99:9999")
 emulator = CCore.CCore(pubsub="osc-udp:") # use default bidirectional multicasto
 oocp = emulator	# OOCP talks on default multicast too
 
-testing = False
+# Auto Detect if running on RVIP computer
+from subprocess import *
+ifconfig = Popen(['ifconfig'], stdout = PIPE).communicate()[0]
+testing = ifconfig.find("192.168.1.11") < 0  # -1 if not found
 
 if not testing:
     normalOperation = [kelp, side]
@@ -324,10 +327,10 @@ def pulse(r,g,b, hold, decay, period):
             send("/fill", [r, g, b])
         else:
             # fraction of decay time
-            left = 1 - max((t-hold)/decay,0)
+            left = 1.0 - min((t-hold)/decay,1.0)
             # send("/fill",[r*left, g*left*left, b*left])
+            # print left
             bright(left)
-            bright
     return pulseFx
 
 def testPulse(r,g,b, hold, decay, period):
@@ -340,7 +343,7 @@ def testPulse(r,g,b, hold, decay, period):
 # testPulse(1.0, 0.0, 0.0, 0.2, 0.8, 1.5)
 
 def colorPulse(r,g,b):
-    return pulse(r,g,b, 0.2, 3.0, 4.0)
+    return pulse(r,g,b, 0.2, 3.0, 3.0)
 
 def solid(r,g,b):
     def solidFx(t):
@@ -406,10 +409,13 @@ def oocpHandler(msg):
     # ignore our own kelper messages
     print msg.path
     print msg.data
-    handler = oocpHooks.get(msg.data[0], False)
-    if handler:
+    effectName = msg.data[0]
+    handler = oocpHooks.get(effectName, False)
+    if handler and currentEffect and currentEffect["name"] != effectName :
         print handler
         handler()
+    else:
+        print "Skipping - already in %s mode" % (effectName)
 
 def dispatch(msg):
     if msg.path in ["/lights"]:
@@ -437,6 +443,8 @@ quitFlag = False
 jumpTo = False
 jumpToDur = 30
 
+currentEffect = False
+
 defaultXfm = np.array([[-1,0,0],
                        [0,0,1],
                        [0,-1,0]])
@@ -444,6 +452,7 @@ defaultXfm = np.array([[-1,0,0],
 def playFx(fx,fps,xfm=defaultXfm,options={},dur=0):
     global quitFlag
     print "Playing "+fx.__name__
+    bright(1.0)
     start = time.time()
     playtil = start + dur
     xfmList = None
@@ -461,6 +470,7 @@ def playFx(fx,fps,xfm=defaultXfm,options={},dur=0):
 
 def playMovie(fn,fps,xfm=defaultXfm,options={},dur=0):
     global quitFlag
+    bright(1.0)
     print "Playing "+fn
     if dur:
         print "For",dur,"seconds "
@@ -493,6 +503,9 @@ def playMovie(fn,fps,xfm=defaultXfm,options={},dur=0):
     return quitFlag
 
 def playEffect(effect, xfm=defaultXfm, options={}, dur=0):
+    global currentEffect
+    currentEffect = effect
+    bright(1.0)
     instance = effect["movie"]
     print "Playing "+ effect.get("name", "un-named")
     # load up any options or xfms associated with clip
